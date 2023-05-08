@@ -11,6 +11,7 @@ proc-macro = true
 
 [dependencies]
 derive-syn-parse = "0.1.5"
+prettyplease = "0.2.4"
 proc-macro2 = "1"
 quote = "1"
 syn = { version = "2", features = ["full", "visit"] }

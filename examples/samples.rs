@@ -27,3 +27,5 @@ impl DoSomething for MyCoolStruct {
         println!("foo!");
     }
 }
+
+fn main() {}

@@ -131,6 +131,10 @@ struct EmbedArgs {
     item_ident: Option<Ident>,
 }
 
+fn format_source_code(source: String) -> String {
+    prettyplease::unparse(&syn::parse_file(source.to_string().as_str()).unwrap())
+}
+
 fn into_example(st: String, ignore: bool) -> String {
     let mut lines: Vec<String> = Vec::new();
     if ignore {
@@ -138,7 +142,7 @@ fn into_example(st: String, ignore: bool) -> String {
     } else {
         lines.push(String::from("```"));
     }
-    for line in st.lines() {
+    for line in format_source_code(st).lines() {
         lines.push(String::from(line));
     }
     lines.push(String::from("```"));
