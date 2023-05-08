@@ -24,4 +24,8 @@ pub struct Duplicates;
 #[doc = docify::embed_run!("examples/samples.rs", runnable)]
 pub struct Runnable;
 
+/// This example runs a test
+#[doc = docify::embed_run!("examples/samples.rs", test_with_custom_name)]
+pub struct RunnableTest;
+
 fn main() {}
