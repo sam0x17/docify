@@ -13,4 +13,4 @@ proc-macro = true
 derive-syn-parse = "0.1.5"
 proc-macro2 = "1"
 quote = "1"
-syn = { version = "2", features = ["full"] }
+syn = { version = "2", features = ["full", "visit"] }
