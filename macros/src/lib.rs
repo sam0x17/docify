@@ -54,7 +54,7 @@ fn export_internal(
                         item.span(),
                         "Cannot automatically detect ident from this item. \
 				        You will need to specify a name manually as the argument \
-						for the #[export] attribute.",
+						for the #[export] attribute, i.e. #[export(my_name)].",
                     ))
                 }
             }
