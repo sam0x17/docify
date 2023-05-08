@@ -37,4 +37,10 @@ struct _StructTwo;
 #[docify::export(Duplicate)]
 struct _StructThree;
 
+#[docify::export]
+#[allow(unused)]
+fn runnable() {
+    assert_eq!(2 + 2, 4);
+}
+
 fn main() {}

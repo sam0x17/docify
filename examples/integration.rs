@@ -20,4 +20,8 @@ pub struct MultipleEmbeds;
 #[doc = docify::embed!("examples/samples.rs", Duplicate)]
 pub struct Duplicates;
 
+/// This example will actually run in rust docs
+#[doc = docify::embed_run!("examples/samples.rs", runnable)]
+pub struct Runnable;
+
 fn main() {}

@@ -117,7 +117,15 @@ fn export_internal(
 
 #[proc_macro]
 pub fn embed(tokens: TokenStream) -> TokenStream {
-    match embed_internal(tokens) {
+    match embed_internal(tokens, true) {
+        Ok(tokens) => tokens.into(),
+        Err(err) => err.to_compile_error().into(),
+    }
+}
+
+#[proc_macro]
+pub fn embed_run(tokens: TokenStream) -> TokenStream {
+    match embed_internal(tokens, false) {
         Ok(tokens) => tokens.into(),
         Err(err) => err.to_compile_error().into(),
     }
@@ -211,7 +219,7 @@ impl<'ast> Visit<'ast> for ItemVisitor {
     }
 }
 
-fn embed_internal(tokens: impl Into<TokenStream2>) -> Result<TokenStream2> {
+fn embed_internal(tokens: impl Into<TokenStream2>, ignore: bool) -> Result<TokenStream2> {
     let args = parse2::<EmbedArgs>(tokens.into())?;
     let source_code = match fs::read_to_string(args.file_path.value()) {
         Ok(src) => src,
@@ -230,7 +238,6 @@ fn embed_internal(tokens: impl Into<TokenStream2>) -> Result<TokenStream2> {
     };
     let parsed = source_code.parse::<TokenStream2>()?;
     let source_file = parse2::<File>(parsed)?;
-    let ignore = true;
 
     let output = if let Some(ident) = args.item_ident {
         let mut visitor = ItemVisitor {
