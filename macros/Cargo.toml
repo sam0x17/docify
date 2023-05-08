@@ -1,13 +1,13 @@
-[workspace]
-members = ["macros"]
-
 [package]
-name = "embed_in_docs"
+name = "embed_in_doc_macros"
 version = "0.1.0"
 edition = "2021"
 authors = ["sam0x17"]
 license = "MIT"
-description = "embed_in_docs allows you to live-embed pieces of code from throughout your project in doc comments"
+description = "Support macros for embed_in_docs"
+
+[lib]
+proc-macro = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
