@@ -1,10 +1,10 @@
 [package]
-name = "embed_in_doc_macros"
+name = "docify_macros"
 version = "0.1.0"
 edition = "2021"
 authors = ["sam0x17"]
 license = "MIT"
-description = "Support macros for embed_in_docs"
+description = "Support macros for docify"
 
 [lib]
 proc-macro = true

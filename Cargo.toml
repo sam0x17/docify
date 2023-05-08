@@ -2,13 +2,14 @@
 members = ["macros"]
 
 [package]
-name = "embed_in_docs"
+name = "docify"
 version = "0.1.0"
 edition = "2021"
 authors = ["sam0x17"]
 license = "MIT"
-description = "embed_in_docs allows you to live-embed pieces of code from throughout your project in doc comments"
+description = "Docify allows you to live-embed pieces of code from throughout your project in doc comments"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+docify_macros = { path = "macros", version = "0.1.0" }
