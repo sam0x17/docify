@@ -1,8 +1,9 @@
 use derive_syn_parse::Parse;
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
-use quote::quote;
-use syn::{parse2, spanned::Spanned, Error, Ident, Item, Result};
+use quote::{quote, ToTokens};
+use std::{env, fs};
+use syn::{parse2, spanned::Spanned, Error, File, Ident, Item, LitStr, Result, Token};
 
 #[proc_macro_attribute]
 pub fn export(attr: TokenStream, tokens: TokenStream) -> TokenStream {
@@ -54,7 +55,7 @@ fn export_internal(
                         item.span(),
                         "Cannot automatically detect ident from this item. \
 				        You will need to specify a name manually as the argument \
-						for the #[export] attribute, i.e. #[export(my_name)].",
+						for the #[export] attribute, i.e. #[export(as my_name)].",
                     ))
                 }
             }
@@ -62,6 +63,61 @@ fn export_internal(
     };
 
     Ok(quote!(#item))
+}
+
+#[proc_macro]
+pub fn embed(tokens: TokenStream) -> TokenStream {
+    match embed_internal(tokens) {
+        Ok(tokens) => tokens.into(),
+        Err(err) => err.to_compile_error().into(),
+    }
+}
+
+#[derive(Parse)]
+struct EmbedArgs {
+    file_path: LitStr,
+    #[prefix(Option<Token![,]> as comma)]
+    #[parse_if(comma.is_some())]
+    item_ident: Option<Ident>,
+}
+
+fn into_doc_comments(st: String, ignore: bool) -> String {
+    let mut lines: Vec<String> = Vec::new();
+    if ignore {
+        lines.push(String::from("```ignore"));
+    } else {
+        lines.push(String::from("```"));
+    }
+    for line in st.lines() {
+        lines.push(String::from(line));
+    }
+    lines.push(String::from("```"));
+    lines.join("\n")
+}
+
+fn embed_internal(tokens: impl Into<TokenStream2>) -> Result<TokenStream2> {
+    let args = parse2::<EmbedArgs>(tokens.into())?;
+    let source_code = match fs::read_to_string(args.file_path.value()) {
+        Ok(src) => src,
+        Err(_) => {
+            return Err(Error::new(
+                args.file_path.span(),
+                format!(
+                    "Could not read the specified path '{}' relative to '{}'.",
+                    args.file_path.value(),
+                    env::current_dir()
+                        .expect("Could not read current directory!")
+                        .display()
+                ),
+            ))
+        }
+    };
+    let parsed = source_code.parse::<TokenStream2>()?;
+    let item_file = parse2::<File>(parsed)?;
+
+    let source_code = into_doc_comments(source_code, true);
+
+    Ok(quote!(#source_code))
 }
 
 #[cfg(test)]
