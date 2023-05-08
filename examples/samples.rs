@@ -28,4 +28,13 @@ impl DoSomething for MyCoolStruct {
     }
 }
 
+#[docify::export(Duplicate)]
+struct _StructOne;
+
+#[docify::export(Duplicate)]
+struct _StructTwo;
+
+#[docify::export(Duplicate)]
+struct _StructThree;
+
 fn main() {}

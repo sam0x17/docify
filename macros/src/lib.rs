@@ -7,7 +7,7 @@ use syn::{
     parse2,
     spanned::Spanned,
     visit::{self, Visit},
-    AttrStyle, Attribute, Error, File, Ident, Item, LitStr, Result, Token,
+    AttrStyle, Attribute, Error, File, Ident, Item, LitStr, Meta, Result, Token,
 };
 
 /// Gets a copy of the inherent name ident of an [`Item`], if applicable.
@@ -171,13 +171,23 @@ impl<'ast> Visit<'ast> for ItemVisitor {
             }
             // we have found a #[something::docify::export] or #[docify::export] or
             // #[export]-style attribute
-            let item_ident = match attr.meta.path().get_ident() {
-                Some(ident) => ident.clone(),
+
+            // resolve item_ident
+            let item_ident = match &attr.meta {
+                Meta::List(list) => match parse2::<Ident>(list.tokens.clone()) {
+                    Ok(ident) => Some(ident),
+                    Err(_) => None,
+                },
+                _ => None,
+            };
+            let item_ident = match item_ident {
+                Some(ident) => ident,
                 None => match name_ident(&node) {
                     Some(ident) => ident,
                     None => continue,
                 },
             };
+
             // check if this ident matches the one we're searching for
             if item_ident == self.search {
                 let mut item = node.clone();
