@@ -76,6 +76,42 @@ fn set_item_attributes(item: &mut Item, attrs: Vec<Attribute>) {
     }
 }
 
+/// Marks an item for export, making it available for embedding as a rust doc example via
+/// [`docify::embed!(..)`](`macro@embed`).
+///
+/// By default, you can just call the attribute with no arguments like the following:
+/// ```ignore
+/// #[docify::export]
+/// mod some_item {
+///     fn some_func() {
+///         println!("hello world");
+///     }
+/// }
+/// ```
+///
+/// When you [`macro@embed`] this item, you will have to refer to it by the primary ident
+/// associated with the item, in this case `some_item`. In some cases, such as with `impl`
+/// statements, there is no clear main ident. You should handle these situations by specifying an
+/// ident manually (not doing so will result in a compile error):
+/// ```ignore
+/// #[docify::export(some_name)]
+/// impl SomeTrait for Something {
+///     // ...
+/// }
+/// ```
+///
+/// You are also free to specify an alternate export name for items that _do_ have a clear
+/// ident if you need/want to:
+/// ```ignore
+/// #[docify::export(SomeName)]
+/// fn hello_world() {
+///     println!("hello");
+///     println!("world");
+/// }
+/// ```
+///
+/// When you go to [`macro@embed`] or [`macro@embed_run`] such an item, you must refer to it by
+/// `SomeName` (in this case), or whatever name you provided to `#[docify::export]`.
 #[proc_macro_attribute]
 pub fn export(attr: TokenStream, tokens: TokenStream) -> TokenStream {
     match export_internal(attr, tokens) {
@@ -115,6 +151,11 @@ fn export_internal(
     Ok(quote!(#item))
 }
 
+/// ## Arguments
+/// - `source_path`: the file path (relative to the workspace root) that contains the item you
+///   would like to emebd, represented as a string literal. If you wish to embed an entire
+///   file, simply specify only a path with no other arguments and the entire file will be
+///   embedded as a doc example
 #[proc_macro]
 pub fn embed(tokens: TokenStream) -> TokenStream {
     match embed_internal(tokens, true) {
