@@ -7,7 +7,7 @@
 
 This crate provides a simple set of rust macros that allow you to dynamically embed tests and
 examples from elsewhere in your workspace directly within rust docs comments, with the option
-to make these examples runnable or ````ignore`.
+to make these examples runnable.
 
 The intent behind docify is to allow you to showcase your best examples and tests directly in
 your docs, without having to update them in two places every time there is a change. It also
@@ -46,8 +46,9 @@ pub struct SomeItem;
 This will result in the following expanded doc comments:
 
 ```rust
-/// These are some docs about an item. You can embed examples, tests, and
-/// other items directly into docs using the following macro:
+/// These are some docs about an item. You can embed examples,
+/// tests, and other items directly into docs using the
+/// following macro:
 /// ```ignore
 /// fn some_example() {
 ///   assert_eq!(2 + 2, 4);
@@ -55,8 +56,8 @@ This will result in the following expanded doc comments:
 ///   assert_eq!(3 + 3, 6);
 /// }
 /// ```
-/// More docs can go here, the example will embed itself inline exactly
-/// where you reference it.
+/// More docs can go here, the example will embed itself inline
+/// exactly where you reference it.
 pub struct SomeItem;
 ```
 
