@@ -7,7 +7,11 @@ version = "0.1.0"
 edition = "2021"
 authors = ["sam0x17"]
 license = "MIT"
-description = "Docify allows you to live-embed pieces of code from throughout your project in doc comments"
+keywords = ["docify", "compile-time", "macro", "docs", "doc", "documentation", "embed"]
+categories = ["development-tools", "development-tools::procedural-macro-helpers", "rust-patterns"]
+homepage = "https://sam0x17.dev"
+repository = "https://github.com/sam0x17/docify"
+description = "Docify allows you to live-embed at compile time pieces of code from throughout your project as rust doc examples."
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

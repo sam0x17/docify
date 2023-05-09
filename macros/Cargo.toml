@@ -4,7 +4,9 @@ version = "0.1.0"
 edition = "2021"
 authors = ["sam0x17"]
 license = "MIT"
-description = "Support macros for docify"
+homepage = "https://sam0x17.dev"
+repository = "https://github.com/sam0x17/docify"
+description = "Support macros for docify."
 
 [lib]
 proc-macro = true
