@@ -1,5 +1,6 @@
+#![allow(unused)]
+
 #[docify::export]
-#[allow(unused)]
 struct MyCoolStruct {
     field1: u32,
     field2: bool,
@@ -41,6 +42,13 @@ struct _StructThree;
 #[allow(unused)]
 fn runnable() {
     assert_eq!(2 + 2, 4);
+}
+
+#[docify::export]
+fn some_example() {
+    assert_eq!(2 + 2, 4);
+    assert_eq!(2 + 3, 5);
+    assert_eq!(3 + 3, 6);
 }
 
 fn main() {}

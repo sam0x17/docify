@@ -1,6 +1,4 @@
-//! # Docify
-//!
-//! This crate provides a simple set of rust macros, namely [`#[docify::export(..)]`](`export`)
+//! Docify provides a simple set of rust macros, namely [`#[docify::export(..)]`](`export`)
 //! and [`docify::embed!(..)`](`embed`), that allow you to dynamically embed tests and examples
 //! at compile time from elsewhere in your workspace directly within rust docs comments, with
 //! the option to make these examples runnable.
@@ -19,21 +17,21 @@
 //! Using `docify` is simple. First mark the tests/examples/items that you wish to embed with
 //! `#[docify::export]`, such as the following:
 //!
-//! ```rust
+//! ```
 //! #[docify::export]
 //! fn some_example() {
-//!   assert_eq!(2 + 2, 4);
-//!   assert_eq!(2 + 3, 5);
-//!   assert_eq!(3 + 3, 6);
+//!     assert_eq!(2 + 2, 4);
+//!     assert_eq!(2 + 3, 5);
+//!     assert_eq!(3 + 3, 6);
 //! }
 //! ```
 //!
 //! You can then embed this item directly in doc comments using the `docify::embed` macro:
 //!
-//! ```rust
+//! ```
 //! /// These are some docs about an item. You can embed examples, tests, and
 //! /// other items directly into docs using the following macro:
-//! #[doc = docify::embed!("source/file/path.rs", some_example)]
+//! #[doc = docify::embed!("examples/samples.rs", some_example)]
 //! /// More docs can go here, the example will embed itself inline exactly
 //! /// where you reference it.
 //! pub struct SomeItem;
@@ -41,14 +39,14 @@
 //!
 //! This will result in the following expanded doc comments:
 //!
-//! ```rust
+//! ```
 //! /// These are some docs about an item. You can embed examples, tests, and
 //! /// other items directly into docs using the following macro:
 //! /// ```ignore
 //! /// fn some_example() {
-//! ///   assert_eq!(2 + 2, 4);
-//! ///   assert_eq!(2 + 3, 5);
-//! ///   assert_eq!(3 + 3, 6);
+//! ///     assert_eq!(2 + 2, 4);
+//! ///     assert_eq!(2 + 3, 5);
+//! ///     assert_eq!(3 + 3, 6);
 //! /// }
 //! /// ```
 //! /// More docs can go here, the example will embed itself inline exactly
