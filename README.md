@@ -9,7 +9,7 @@ This crate provides a simple set of rust macros that allow you to dynamically em
 examples from elsewhere in your workspace directly within rust docs comments, with the option
 to make these examples runnable or ````ignore`.
 
-The intent behind this is to allow you to showcase your best examples and tests directly in
+The intent behind docify is to allow you to showcase your best examples and tests directly in
 your docs, without having to update them in two places every time there is a change. It also
 encourages a methodology where crate authors better document their tests, since they can now
 showcase these directly in their doc comments.

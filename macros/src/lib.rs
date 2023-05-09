@@ -1,3 +1,5 @@
+//! This crate contains the proc macros used by [docify](https://crates.io/crates/docify).
+
 use derive_syn_parse::Parse;
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
