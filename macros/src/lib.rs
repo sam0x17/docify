@@ -77,7 +77,7 @@ fn set_item_attributes(item: &mut Item, attrs: Vec<Attribute>) {
 }
 
 /// Marks an item for export, making it available for embedding as a rust doc example via
-/// [`docify::embed!(..)`](`macro@embed`).
+/// [`docify::embed!(..)`](`macro@embed`) or [`docify::embed_run!(..)`](`macro@embed_run`).
 ///
 /// By default, you can just call the attribute with no arguments like the following:
 /// ```ignore
@@ -89,10 +89,10 @@ fn set_item_attributes(item: &mut Item, attrs: Vec<Attribute>) {
 /// }
 /// ```
 ///
-/// When you [`macro@embed`] this item, you will have to refer to it by the primary ident
-/// associated with the item, in this case `some_item`. In some cases, such as with `impl`
-/// statements, there is no clear main ident. You should handle these situations by specifying an
-/// ident manually (not doing so will result in a compile error):
+/// When you [`docify::embed!(..)`](`macro@embed`) this item, you will have to refer to it by
+/// the primary ident associated with the item, in this case `some_item`. In some cases, such
+/// as with `impl` statements, there is no clear main ident. You should handle these situations
+/// by specifying an ident manually (not doing so will result in a compile error):
 /// ```ignore
 /// #[docify::export(some_name)]
 /// impl SomeTrait for Something {
@@ -110,8 +110,23 @@ fn set_item_attributes(item: &mut Item, attrs: Vec<Attribute>) {
 /// }
 /// ```
 ///
-/// When you go to [`macro@embed`] or [`macro@embed_run`] such an item, you must refer to it by
+/// When you go to [`docify::embed!(..)`](`macro@embed`) or
+/// [`docify::embed_run!(..)`](`macro@embed_run`) such an item, you must refer to it by
 /// `SomeName` (in this case), or whatever name you provided to `#[docify::export]`.
+///
+/// There is no guard to prevent duplicate export names in the same file, and export names are
+/// all considered within the global namespace of the file in question (they do not exist
+/// inside a particular module or scope within a source file). When using
+/// [`docify::embed!(..)`](`macro@embed`), duplicate results are simply embedded one after
+/// another, and this is by design.
+///
+/// If there are multiple items with the same inherent name in varipous scopes in the same
+/// file, and you want to export just one of them as a doc example, you should specify a unique
+/// ident as the export name for this item.
+///
+/// Note that if you wish to embed an _entire_ file, you don't need `#[docify::export]` at all
+/// and can instead specify just a path to [`docify::embed!(..)`](`macro@embed`) or
+/// [`docify::embed_run!(..)`](`macro@embed_run`).
 #[proc_macro_attribute]
 pub fn export(attr: TokenStream, tokens: TokenStream) -> TokenStream {
     match export_internal(attr, tokens) {
@@ -151,11 +166,75 @@ fn export_internal(
     Ok(quote!(#item))
 }
 
-/// ## Arguments
+/// Embeds the specified item from the specified source file in a rust doc example, with pretty
+/// formatting enabled.
+///
+/// Should be used in a `#[doc = ...]` statement, like the following:
+///
+/// ```ignore
+/// /// some doc comments here
+/// #[doc = docify::embed!("path/to/file.rs", my_example)]
+/// /// more doc comments
+/// struct DocumentedItem;
+/// ```
+///
+/// Which will expand to the `my_example` item in `path/to/file.rs` being embedded in a rust
+/// doc example marked with `ignore`. If you want to have your example actually run in rust
+/// docs as well, you should use [`docify::embed_run!(..)`](`macro@embed_run`).
+///
+/// ### Arguments
 /// - `source_path`: the file path (relative to the workspace root) that contains the item you
-///   would like to emebd, represented as a string literal. If you wish to embed an entire
-///   file, simply specify only a path with no other arguments and the entire file will be
-///   embedded as a doc example
+///   would like to embed, represented as a string literal. If you wish to embed an entire
+///   file, simply specify only a `source_path` with no other arguments and the entire file
+///   will be embedded as a doc example. If the path cannot be read for whatever reason, a
+///   compile error will be issued. The `source_path` _does  not_ have to be a file that is
+///   part of the current compilation unit/project/workspace, though typically it should be.
+///   The only requirement is that it must contain valid Rust source code.
+/// - `item_ident`: (optional) can be specified after `source_path`, preceded by a comma. This
+///   should match the export name you used to [`#[docify::export(..)]`](`macro@export`) the
+///   item, or, if no export name was specified, this should match the inherent ident/name of
+///   the item. If the item cannot be found, a compile error will be issued. As mentioned
+///   above, if no `item_ident` is specified, the entire file will be embedded as an example.
+///
+/// All items in the `source_file` exist in the same global scope when they are exported for
+/// embedding. Special care must be taken with how you
+/// [`#[docify::export(..)]`](`macro@export`) items in order to get the item you want.
+///
+/// If there multiple items in a file that resolve to the same `item_ident` (whether as an
+/// inherent ident name or as a manually specified `item_ident`), and you embed using this
+/// ident, all matching items will be embedded, one after another, listed in the order that
+/// they appear in the `source_file`.
+///
+/// Here is an example of embedding an _entire_ source file as an example:
+/// ```ignore
+/// /// Here is a cool example module:
+/// #[doc = docify::embed!("examples/my_example.rs")]
+/// struct DocumentedItem
+/// ```
+///
+/// You are also free to embed multiple examples in the same set of doc comments:
+/// ```ignore
+/// /// Example 1:
+/// #[doc = docify::embed!("examples/example_1.rs")]
+/// /// Example 2:
+/// #[doc = docify::embed!("examples/example_2.rs")]
+/// /// More docs
+/// struct DocumentedItem;
+/// ```
+///
+/// Note that all examples generated by `docify::embed!(..)` are set to `ignore` by default,
+/// since they are typically already functioning examples or tests elsewhere in the project,
+/// and so they do not need to be run as well in the context where they are being embedded. If
+/// for whatever reason you _do_ want to also run an embedded example as a doc example, you can
+/// use [`docify::embed_run!(..)`](`macro@embed_run`) which removes the `ignore` tag from the
+/// generated example but otherwise functions exactly like `#[docify::embed!(..)]` in every
+/// way.
+///
+/// Pretty formatting is provided by the [prettyplease](https://crates.io/crates/prettyplease)
+/// crate, and should match `rustfmt` output almost exactly. The reason this must be used is,
+/// except with the case of importing an entire file verbatim, we need to parse the source file
+/// with `syn`, which garbles indentation and newlines in many cases, so to fix this, we must
+/// use a formatter.
 #[proc_macro]
 pub fn embed(tokens: TokenStream) -> TokenStream {
     match embed_internal(tokens, true) {
@@ -164,6 +243,11 @@ pub fn embed(tokens: TokenStream) -> TokenStream {
     }
 }
 
+/// Exactly like [`docify::embed!(..)`](`macro@embed`) in every way _except_ the generated
+/// examples are also run automatically as rust doc examples (`ignore` is not included).
+///
+/// Other than this fact all of the usual docs and syntax and behaviors for
+/// [`docify::embed!(..)`](`macro@embed`) also apply to this macro.
 #[proc_macro]
 pub fn embed_run(tokens: TokenStream) -> TokenStream {
     match embed_internal(tokens, false) {
