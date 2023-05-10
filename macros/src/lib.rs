@@ -284,7 +284,7 @@ fn into_example(st: &str, ignore: bool) -> String {
     } else {
         lines.push(String::from("```"));
     }
-    for line in format_source_code(st).lines() {
+    for line in st.lines() {
         lines.push(String::from(line));
     }
     lines.push(String::from("```"));
