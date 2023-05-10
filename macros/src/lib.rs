@@ -6,7 +6,12 @@ use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{quote, ToTokens};
 use regex::Regex;
-use std::{collections::BTreeSet, env, fmt::Display, fs};
+use std::{
+    collections::{BTreeSet, HashMap},
+    env,
+    fmt::Display,
+    fs,
+};
 use syn::{
     parse2,
     spanned::Spanned,
@@ -268,11 +273,11 @@ struct EmbedArgs {
     item_ident: Option<Ident>,
 }
 
-fn format_source_code(source: String) -> String {
+fn format_source_code(source: &str) -> String {
     prettyplease::unparse(&syn::parse_file(source.to_string().as_str()).unwrap())
 }
 
-fn into_example(st: String, ignore: bool) -> String {
+fn into_example(st: &str, ignore: bool) -> String {
     let mut lines: Vec<String> = Vec::new();
     if ignore {
         lines.push(String::from("```ignore"));
@@ -348,6 +353,18 @@ impl<'ast> Visit<'ast> for ItemVisitor {
     }
 }
 
+#[derive(Copy, Clone, Eq, PartialEq)]
+struct OffsetChar {
+    char: char,
+    original_pos: usize,
+}
+
+impl OffsetChar {
+    fn new(char: char, original_pos: usize) -> OffsetChar {
+        OffsetChar { char, original_pos }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum EntityType {
     LineComment,
@@ -377,7 +394,7 @@ impl SourceEntity {
     }
 
     pub fn claim(&self, claimed: &mut Vec<Option<SourceEntity>>) {
-        for i in self.start..self.end {
+        for i in self.start..(self.end + 1) {
             claimed[i] = Some(self.clone());
         }
     }
@@ -392,15 +409,18 @@ impl SourceEntity {
 }
 
 struct CompressedString {
-    /// inversions[i] is the positive offset to revert the compressed position of the ith
-    /// character back to its original position in the uncompressed string
-    inversions: Vec<usize>,
-    compressed: String,
+    chars: HashMap<usize, OffsetChar>,
+    chars_arr: Vec<OffsetChar>,
+}
+
+impl CompressedString {
+    fn to_string(&self) -> String {
+        self.chars_arr.iter().map(|c| c.char).collect()
+    }
 }
 
 impl From<&String> for CompressedString {
     fn from(value: &String) -> Self {
-        println!("compressing");
         lazy_static! {
             static ref DOC_COMMENT: Regex = Regex::new(r"///.*").unwrap();
             static ref DOC_COMMENT_ATTR: Regex = Regex::new(r#"#\[doc = ".*"]"#).unwrap();
@@ -411,26 +431,26 @@ impl From<&String> for CompressedString {
         let mut entities: Vec<SourceEntity> = Vec::new();
         let mut claimed: Vec<Option<SourceEntity>> = value.chars().map(|_| None).collect();
         for m in DOC_COMMENT.find_iter(value) {
-            let entity = SourceEntity::new(m.start() - 1, m.end(), EntityType::DocComment);
+            let entity = SourceEntity::new(m.start(), m.end(), EntityType::DocComment);
             entity.claim(&mut claimed);
             entities.push(entity);
         }
         for m in DOC_COMMENT_ATTR.find_iter(value) {
-            let entity = SourceEntity::new(m.start() - 1, m.end(), EntityType::DocCommentAttr);
+            let entity = SourceEntity::new(m.start(), m.end(), EntityType::DocCommentAttr);
             if !entity.is_claimed(&claimed) {
                 entity.claim(&mut claimed);
                 entities.push(entity);
             }
         }
         for m in MULTI_LINE_COMMENT.find_iter(value) {
-            let entity = SourceEntity::new(m.start() - 1, m.end(), EntityType::MultiLineComment);
+            let entity = SourceEntity::new(m.start(), m.end(), EntityType::MultiLineComment);
             if !entity.is_claimed(&claimed) {
                 entity.claim(&mut claimed);
                 entities.push(entity);
             }
         }
         for m in LINE_COMMENT.find_iter(value) {
-            let entity = SourceEntity::new(m.start() - 1, m.end(), EntityType::LineComment);
+            let entity = SourceEntity::new(m.start(), m.end(), EntityType::LineComment);
             if !entity.is_claimed(&claimed) {
                 entity.claim(&mut claimed);
                 entities.push(entity);
@@ -443,55 +463,50 @@ impl From<&String> for CompressedString {
         //         entities.push(entity);
         //     }
         // }
-        entities = entities.into_iter().rev().collect();
-        println!(
-            "{:#?}",
-            entities
-                .iter()
-                .map(|entity| format!("{:?} => {}", entity.entity_type, entity.value(&value)))
-                .collect::<Vec<String>>()
-        );
-        let mut inversions: Vec<usize> = Vec::new();
-        let mut compressed: Vec<char> = Vec::new();
-        let mut cursor = 0;
+        // entities = entities.into_iter().rev().collect();
+        // println!(
+        //     "{:#?}",
+        //     entities
+        //         .iter()
+        //         .map(|entity| format!("{:?} => {}", entity.entity_type, entity.value(&value)))
+        //         .collect::<Vec<String>>()
+        // );
+        let mut compressed = CompressedString {
+            chars_arr: Vec::new(),
+            chars: HashMap::new(),
+        };
         let chars: Vec<char> = value.chars().collect();
+        let mut cursor = 0;
         for (i, c) in chars.iter().enumerate() {
-            inversions.push(i - cursor);
-            if let Some(_) = &claimed[i] {
+            if claimed[i].is_some() || c.is_whitespace() {
                 continue;
             }
-            compressed.push(*c);
+            let oc = OffsetChar::new(*c, i);
+            compressed.chars.insert(cursor, oc.clone());
+            compressed.chars_arr.push(oc);
             cursor += 1;
         }
-        let compressed = compressed.iter().collect();
-        println!("original:\n{}", value);
-        println!("compressed:\n{}", compressed);
-        println!();
-        CompressedString {
-            compressed,
-            inversions,
-        }
+        compressed
     }
 }
 
 /// Finds and returns the specified [`Item`] within a source text string and returns the exact
 /// source code of that item, without any formatting changes
-fn source_excerpt(source: &String, item: &Item) -> String {
+fn source_excerpt<'a>(source: &'a String, item: &'a Item) -> &'a str {
     // note: can't rely on span locations because this requires nightly and it turns out the
     // spans for most items do not actually fully enclose them, sometimes just the ident, etc
     let compressed_source = CompressedString::from(source);
     let compressed_item = CompressedString::from(&item.to_token_stream().to_string());
-    // println!("compressed source:\n{}", compressed_source.compressed);
-    // println!("compressed item:\n{}", compressed_item.compressed);
-    if !compressed_source
-        .compressed
-        .contains(&compressed_item.compressed)
-    {
-        println!("haystack:\n{}", compressed_source.compressed);
-        println!("needle:\n{}", compressed_item.compressed);
-        panic!("nope!");
-    }
-    item.to_token_stream().to_string()
+    let compressed_source_string = compressed_source.to_string();
+    let compressed_item_string = compressed_item.to_string();
+    let Some(found_start) = compressed_source_string.find(&compressed_item_string) else {
+        panic!("oh no!");
+    };
+    let start_c = compressed_source.chars[&found_start];
+    let start_pos = start_c.original_pos;
+    let end_c = compressed_source.chars[&(found_start + compressed_item_string.len() - 1)];
+    let end_pos = end_c.original_pos;
+    &source[(start_pos)..(end_pos + 1)]
 }
 
 fn embed_internal(tokens: impl Into<TokenStream2>, ignore: bool) -> Result<TokenStream2> {
@@ -537,7 +552,7 @@ fn embed_internal(tokens: impl Into<TokenStream2>, ignore: bool) -> Result<Token
             .collect();
         results.join("\n")
     } else {
-        into_example(source_code, ignore)
+        into_example(source_code.as_str(), ignore)
     };
 
     Ok(quote!(#output))
