@@ -6,12 +6,7 @@ use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{quote, ToTokens};
 use regex::Regex;
-use std::{
-    collections::{BTreeSet, HashMap},
-    env,
-    fmt::Display,
-    fs,
-};
+use std::{collections::HashMap, env, fs};
 use syn::{
     parse2,
     spanned::Spanned,
@@ -44,7 +39,7 @@ fn name_ident(item: &Item) -> Option<Ident> {
 
 /// Gets a copy of any attributes associated with this [`Item`], if applicable.
 fn item_attributes(item: &Item) -> &Vec<Attribute> {
-    const EMPTY: &'static Vec<Attribute> = &Vec::new();
+    const EMPTY: &Vec<Attribute> = &Vec::new();
     match item {
         Item::Const(c) => &c.attrs,
         Item::Enum(e) => &e.attrs,
@@ -61,7 +56,7 @@ fn item_attributes(item: &Item) -> &Vec<Attribute> {
         Item::Type(t) => &t.attrs,
         Item::Union(u) => &u.attrs,
         Item::Use(u) => &u.attrs,
-        _ => &EMPTY,
+        _ => EMPTY,
     }
 }
 fn set_item_attributes(item: &mut Item, attrs: Vec<Attribute>) {
@@ -299,7 +294,7 @@ struct ItemVisitor {
 impl<'ast> Visit<'ast> for ItemVisitor {
     fn visit_item(&mut self, node: &'ast Item) {
         let mut i = 0;
-        let attrs = item_attributes(&node);
+        let attrs = item_attributes(node);
         for attr in attrs {
             i += 1; // note, 1-based
             let AttrStyle::Outer = attr.style else { continue };
@@ -324,7 +319,7 @@ impl<'ast> Visit<'ast> for ItemVisitor {
             };
             let item_ident = match item_ident {
                 Some(ident) => ident,
-                None => match name_ident(&node) {
+                None => match name_ident(node) {
                     Some(ident) => ident,
                     None => continue,
                 },
@@ -371,7 +366,7 @@ enum EntityType {
     MultiLineComment,
     DocComment,
     DocCommentAttr,
-    StringLiteral,
+    // StringLiteral,
 }
 
 #[derive(Clone, PartialEq, Eq)]
@@ -389,9 +384,6 @@ impl SourceEntity {
             entity_type,
         }
     }
-    pub fn contains(&self, x: usize) -> bool {
-        x >= self.start && x < self.end
-    }
 
     pub fn claim(&self, claimed: &mut Vec<Option<SourceEntity>>) {
         for i in self.start..(self.end + 1) {
@@ -403,9 +395,13 @@ impl SourceEntity {
         claimed[(self.start + self.end) / 2].is_some()
     }
 
-    pub fn value<'a>(&self, source: &'a String) -> &'a str {
-        &source.as_str()[self.start..self.end]
-    }
+    // pub fn value<'a>(&self, source: &'a String) -> &'a str {
+    //     &source.as_str()[self.start..self.end]
+    // }
+
+    // pub fn contains(&self, x: usize) -> bool {
+    //     x >= self.start && x < self.end
+    // }
 }
 
 struct CompressedString {
@@ -426,7 +422,7 @@ impl From<&String> for CompressedString {
             static ref DOC_COMMENT_ATTR: Regex = Regex::new(r#"#\[doc = ".*"]"#).unwrap();
             static ref LINE_COMMENT: Regex = Regex::new(r"//.*").unwrap();
             static ref MULTI_LINE_COMMENT: Regex = Regex::new(r"/\*[\s\S]*?\*/").unwrap();
-            static ref STRING_LIT: Regex = Regex::new(r#"("([^"\\]|\\[\s\S])*")"#).unwrap();
+            // static ref STRING_LIT: Regex = Regex::new(r#"("([^"\\]|\\[\s\S])*")"#).unwrap();
         }
         let mut entities: Vec<SourceEntity> = Vec::new();
         let mut claimed: Vec<Option<SourceEntity>> = value.chars().map(|_| None).collect();
@@ -456,21 +452,6 @@ impl From<&String> for CompressedString {
                 entities.push(entity);
             }
         }
-        // for m in STRING_LIT.find_iter(value) {
-        //     let entity = SourceEntity::new(m.start(), m.end(), EntityType::StringLiteral);
-        //     if !entity.is_claimed(&claimed) {
-        //         entity.claim(&mut claimed);
-        //         entities.push(entity);
-        //     }
-        // }
-        // entities = entities.into_iter().rev().collect();
-        // println!(
-        //     "{:#?}",
-        //     entities
-        //         .iter()
-        //         .map(|entity| format!("{:?} => {}", entity.entity_type, entity.value(&value)))
-        //         .collect::<Vec<String>>()
-        // );
         let mut compressed = CompressedString {
             chars_arr: Vec::new(),
             chars: HashMap::new(),
@@ -482,7 +463,7 @@ impl From<&String> for CompressedString {
                 continue;
             }
             let oc = OffsetChar::new(*c, i);
-            compressed.chars.insert(cursor, oc.clone());
+            compressed.chars.insert(cursor, oc);
             compressed.chars_arr.push(oc);
             cursor += 1;
         }
@@ -540,7 +521,7 @@ fn embed_internal(tokens: impl Into<TokenStream2>, ignore: bool) -> Result<Token
                 ident.span(),
                 format!(
                     "Could not find docify export item '{}' in '{}'.",
-                    ident.to_string(),
+                    ident,
                     args.file_path.value()
                 ),
             ));
@@ -548,7 +529,7 @@ fn embed_internal(tokens: impl Into<TokenStream2>, ignore: bool) -> Result<Token
         let results: Vec<String> = visitor
             .results
             .iter()
-            .map(|item| into_example(source_excerpt(&source_code, &item), ignore))
+            .map(|item| into_example(source_excerpt(&source_code, item), ignore))
             .collect();
         results.join("\n")
     } else {
