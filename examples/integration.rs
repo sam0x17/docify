@@ -28,4 +28,8 @@ pub struct Runnable;
 #[doc = docify::embed_run!("examples/samples.rs", test_with_custom_name)]
 pub struct RunnableTest;
 
+/// This example has comments
+#[doc = docify::embed!("examples/samples.rs", some_example)]
+pub struct LineComments;
+
 fn main() {}

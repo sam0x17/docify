@@ -1,10 +1,12 @@
 //! This crate contains the proc macros used by [docify](https://crates.io/crates/docify).
 
 use derive_syn_parse::Parse;
+use lazy_static::lazy_static;
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{quote, ToTokens};
-use std::{env, fs};
+use regex::Regex;
+use std::{collections::BTreeSet, env, fmt::Display, fs};
 use syn::{
     parse2,
     spanned::Spanned,
@@ -346,6 +348,152 @@ impl<'ast> Visit<'ast> for ItemVisitor {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum EntityType {
+    LineComment,
+    MultiLineComment,
+    DocComment,
+    DocCommentAttr,
+    StringLiteral,
+}
+
+#[derive(Clone, PartialEq, Eq)]
+struct SourceEntity {
+    start: usize,
+    end: usize,
+    entity_type: EntityType,
+}
+
+impl SourceEntity {
+    pub fn new(start: usize, end: usize, entity_type: EntityType) -> SourceEntity {
+        SourceEntity {
+            start,
+            end,
+            entity_type,
+        }
+    }
+    pub fn contains(&self, x: usize) -> bool {
+        x >= self.start && x < self.end
+    }
+
+    pub fn claim(&self, claimed: &mut Vec<Option<SourceEntity>>) {
+        for i in self.start..self.end {
+            claimed[i] = Some(self.clone());
+        }
+    }
+
+    pub fn is_claimed(&self, claimed: &Vec<Option<SourceEntity>>) -> bool {
+        claimed[(self.start + self.end) / 2].is_some()
+    }
+
+    pub fn value<'a>(&self, source: &'a String) -> &'a str {
+        &source.as_str()[self.start..self.end]
+    }
+}
+
+struct CompressedString {
+    /// inversions[i] is the positive offset to revert the compressed position of the ith
+    /// character back to its original position in the uncompressed string
+    inversions: Vec<usize>,
+    compressed: String,
+}
+
+impl From<&String> for CompressedString {
+    fn from(value: &String) -> Self {
+        println!("compressing");
+        lazy_static! {
+            static ref DOC_COMMENT: Regex = Regex::new(r"///.*").unwrap();
+            static ref DOC_COMMENT_ATTR: Regex = Regex::new(r#"#\[doc = ".*"]"#).unwrap();
+            static ref LINE_COMMENT: Regex = Regex::new(r"//.*").unwrap();
+            static ref MULTI_LINE_COMMENT: Regex = Regex::new(r"/\*[\s\S]*?\*/").unwrap();
+            static ref STRING_LIT: Regex = Regex::new(r#"("([^"\\]|\\[\s\S])*")"#).unwrap();
+        }
+        let mut entities: Vec<SourceEntity> = Vec::new();
+        let mut claimed: Vec<Option<SourceEntity>> = value.chars().map(|_| None).collect();
+        for m in DOC_COMMENT.find_iter(value) {
+            let entity = SourceEntity::new(m.start() - 1, m.end(), EntityType::DocComment);
+            entity.claim(&mut claimed);
+            entities.push(entity);
+        }
+        for m in DOC_COMMENT_ATTR.find_iter(value) {
+            let entity = SourceEntity::new(m.start() - 1, m.end(), EntityType::DocCommentAttr);
+            if !entity.is_claimed(&claimed) {
+                entity.claim(&mut claimed);
+                entities.push(entity);
+            }
+        }
+        for m in MULTI_LINE_COMMENT.find_iter(value) {
+            let entity = SourceEntity::new(m.start() - 1, m.end(), EntityType::MultiLineComment);
+            if !entity.is_claimed(&claimed) {
+                entity.claim(&mut claimed);
+                entities.push(entity);
+            }
+        }
+        for m in LINE_COMMENT.find_iter(value) {
+            let entity = SourceEntity::new(m.start() - 1, m.end(), EntityType::LineComment);
+            if !entity.is_claimed(&claimed) {
+                entity.claim(&mut claimed);
+                entities.push(entity);
+            }
+        }
+        // for m in STRING_LIT.find_iter(value) {
+        //     let entity = SourceEntity::new(m.start(), m.end(), EntityType::StringLiteral);
+        //     if !entity.is_claimed(&claimed) {
+        //         entity.claim(&mut claimed);
+        //         entities.push(entity);
+        //     }
+        // }
+        entities = entities.into_iter().rev().collect();
+        println!(
+            "{:#?}",
+            entities
+                .iter()
+                .map(|entity| format!("{:?} => {}", entity.entity_type, entity.value(&value)))
+                .collect::<Vec<String>>()
+        );
+        let mut inversions: Vec<usize> = Vec::new();
+        let mut compressed: Vec<char> = Vec::new();
+        let mut cursor = 0;
+        let chars: Vec<char> = value.chars().collect();
+        for (i, c) in chars.iter().enumerate() {
+            inversions.push(i - cursor);
+            if let Some(_) = &claimed[i] {
+                continue;
+            }
+            compressed.push(*c);
+            cursor += 1;
+        }
+        let compressed = compressed.iter().collect();
+        println!("original:\n{}", value);
+        println!("compressed:\n{}", compressed);
+        println!();
+        CompressedString {
+            compressed,
+            inversions,
+        }
+    }
+}
+
+/// Finds and returns the specified [`Item`] within a source text string and returns the exact
+/// source code of that item, without any formatting changes
+fn source_excerpt(source: &String, item: &Item) -> String {
+    // note: can't rely on span locations because this requires nightly and it turns out the
+    // spans for most items do not actually fully enclose them, sometimes just the ident, etc
+    let compressed_source = CompressedString::from(source);
+    let compressed_item = CompressedString::from(&item.to_token_stream().to_string());
+    // println!("compressed source:\n{}", compressed_source.compressed);
+    // println!("compressed item:\n{}", compressed_item.compressed);
+    if !compressed_source
+        .compressed
+        .contains(&compressed_item.compressed)
+    {
+        println!("haystack:\n{}", compressed_source.compressed);
+        println!("needle:\n{}", compressed_item.compressed);
+        panic!("nope!");
+    }
+    item.to_token_stream().to_string()
+}
+
 fn embed_internal(tokens: impl Into<TokenStream2>, ignore: bool) -> Result<TokenStream2> {
     let args = parse2::<EmbedArgs>(tokens.into())?;
     let source_code = match fs::read_to_string(args.file_path.value()) {
@@ -385,7 +533,7 @@ fn embed_internal(tokens: impl Into<TokenStream2>, ignore: bool) -> Result<Token
         let results: Vec<String> = visitor
             .results
             .iter()
-            .map(|r| into_example(r.to_token_stream().to_string(), ignore))
+            .map(|item| into_example(source_excerpt(&source_code, &item), ignore))
             .collect();
         results.join("\n")
     } else {
