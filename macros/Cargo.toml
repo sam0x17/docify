@@ -14,7 +14,6 @@ proc-macro = true
 [dependencies]
 derive-syn-parse = "0.1.5"
 lazy_static = "1.4.0"
-prettyplease = "0.2.4"
 proc-macro2 = "1"
 quote = "1"
 regex = "1.8.1"

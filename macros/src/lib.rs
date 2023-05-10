@@ -268,10 +268,6 @@ struct EmbedArgs {
     item_ident: Option<Ident>,
 }
 
-fn format_source_code(source: &str) -> String {
-    prettyplease::unparse(&syn::parse_file(source.to_string().as_str()).unwrap())
-}
-
 fn into_example(st: &str, ignore: bool) -> String {
     let mut lines: Vec<String> = Vec::new();
     if ignore {
@@ -473,21 +469,27 @@ impl From<&String> for CompressedString {
 
 /// Finds and returns the specified [`Item`] within a source text string and returns the exact
 /// source code of that item, without any formatting changes
-fn source_excerpt<'a>(source: &'a String, item: &'a Item) -> &'a str {
+fn source_excerpt<'a>(source: &'a String, item: &'a Item) -> Result<&'a str> {
     // note: can't rely on span locations because this requires nightly and it turns out the
     // spans for most items do not actually fully enclose them, sometimes just the ident, etc
     let compressed_source = CompressedString::from(source);
     let compressed_item = CompressedString::from(&item.to_token_stream().to_string());
     let compressed_source_string = compressed_source.to_string();
     let compressed_item_string = compressed_item.to_string();
-    let Some(found_start) = compressed_source_string.find(&compressed_item_string) else {
-        panic!("oh no!");
+    let Some(found_start) = compressed_source_string.find(compressed_item_string.as_str()) else {
+        return Err(Error::new(
+            item.span(),
+            "You have found a bug in docify! Please submit a new GitHub issue at \
+            https://github.com/sam0x17/docify/issues/new?title=%60source_excerpt\
+            %60%3A%20can%27t%20find%20item%20in%20source with a sample of the item \
+            you are trying to embed."
+        ))
     };
     let start_c = compressed_source.chars[&found_start];
     let start_pos = start_c.original_pos;
     let end_c = compressed_source.chars[&(found_start + compressed_item_string.len() - 1)];
     let end_pos = end_c.original_pos;
-    &source[(start_pos)..(end_pos + 1)]
+    Ok(&source[(start_pos)..(end_pos + 1)])
 }
 
 fn embed_internal(tokens: impl Into<TokenStream2>, ignore: bool) -> Result<TokenStream2> {
@@ -526,11 +528,12 @@ fn embed_internal(tokens: impl Into<TokenStream2>, ignore: bool) -> Result<Token
                 ),
             ));
         }
-        let results: Vec<String> = visitor
-            .results
-            .iter()
-            .map(|item| into_example(source_excerpt(&source_code, item), ignore))
-            .collect();
+        let mut results: Vec<String> = Vec::new();
+        for item in visitor.results {
+            let excerpt = source_excerpt(&source_code, &item)?;
+            let example = into_example(excerpt, ignore);
+            results.push(example);
+        }
         results.join("\n")
     } else {
         into_example(source_code.as_str(), ignore)
