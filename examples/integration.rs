@@ -32,4 +32,9 @@ pub struct RunnableTest;
 #[doc = docify::embed!("examples/samples.rs", some_example)]
 pub struct LineComments;
 
+/// This example has wonky formatting that would normally get auto-correct by rustfmt but that
+/// has been manually allowed using a flag
+#[doc = docify::embed!("examples/samples.rs", wonky_comment_example)]
+pub struct WonkyComments;
+
 fn main() {}

@@ -61,4 +61,18 @@ fn some_example() {
     assert_eq!(3 + 3, 6);
 }
 
+#[rustfmt::skip]
+mod bad {
+    #[docify::export]
+    fn 
+    wonky_comment_example() { /* first comment */
+       // this is a line comment
+                // this is also a line comment
+            /*
+        some multilinestuff
+    */
+                            println!("hello world");
+        }
+}
+
 fn main() {}
