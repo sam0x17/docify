@@ -3,16 +3,22 @@
 use derive_syn_parse::Parse;
 use lazy_static::lazy_static;
 use proc_macro::TokenStream;
-use proc_macro2::TokenStream as TokenStream2;
+use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::{quote, ToTokens};
 use regex::Regex;
-use std::{collections::HashMap, env, fs};
+use std::{
+    collections::HashMap,
+    env, fs,
+    path::{Path, PathBuf},
+};
 use syn::{
     parse2,
     spanned::Spanned,
+    token::Paren,
     visit::{self, Visit},
     AttrStyle, Attribute, Error, File, Ident, Item, LitStr, Meta, Result, Token,
 };
+use walkdir::WalkDir;
 
 /// Gets a copy of the inherent name ident of an [`Item`], if applicable.
 fn name_ident(item: &Item) -> Option<Ident> {
@@ -241,7 +247,7 @@ fn export_internal(
 /// use a formatter.
 #[proc_macro]
 pub fn embed(tokens: TokenStream) -> TokenStream {
-    match embed_internal(tokens, true) {
+    match embed_internal(tokens, MarkdownLanguage::Ignore) {
         Ok(tokens) => tokens.into(),
         Err(err) => err.to_compile_error().into(),
     }
@@ -254,7 +260,7 @@ pub fn embed(tokens: TokenStream) -> TokenStream {
 /// [`docify::embed!(..)`](`macro@embed`) also apply to this macro.
 #[proc_macro]
 pub fn embed_run(tokens: TokenStream) -> TokenStream {
-    match embed_internal(tokens, false) {
+    match embed_internal(tokens, MarkdownLanguage::Blank) {
         Ok(tokens) => tokens.into(),
         Err(err) => err.to_compile_error().into(),
     }
@@ -268,12 +274,48 @@ struct EmbedArgs {
     item_ident: Option<Ident>,
 }
 
-fn into_example(st: &str, ignore: bool) -> String {
+impl ToTokens for EmbedArgs {
+    fn to_tokens(&self, tokens: &mut TokenStream2) {
+        tokens.extend(self.file_path.to_token_stream());
+        let Some(item_ident) = &self.item_ident else { return };
+        tokens.extend(quote!(,));
+        tokens.extend(item_ident.to_token_stream());
+    }
+}
+
+mod keywords {
+    use syn::custom_keyword;
+
+    custom_keyword!(docify);
+    custom_keyword!(embed);
+}
+
+#[derive(Parse)]
+struct EmbedCommentCall {
+    #[prefix(keywords::docify)]
+    #[prefix(Token![::])]
+    #[prefix(keywords::embed)]
+    #[prefix(Token![!])]
+    #[paren]
+    _paren: Paren,
+    #[inside(_paren)]
+    args: EmbedArgs,
+    _semi: Option<Token![;]>,
+}
+
+#[derive(Copy, Clone, Eq, PartialEq)]
+enum MarkdownLanguage {
+    Ignore,
+    Rust,
+    Blank,
+}
+
+fn into_example(st: &str, lang: MarkdownLanguage) -> String {
     let mut lines: Vec<String> = Vec::new();
-    if ignore {
-        lines.push(String::from("```ignore"));
-    } else {
-        lines.push(String::from("```"));
+    match lang {
+        MarkdownLanguage::Ignore => lines.push(String::from("```ignore")),
+        MarkdownLanguage::Rust => lines.push(String::from("```rust")),
+        MarkdownLanguage::Blank => lines.push(String::from("```")),
     }
     for line in st.lines() {
         lines.push(String::from(line));
@@ -492,7 +534,7 @@ fn source_excerpt<'a>(source: &'a String, item: &'a Item) -> Result<&'a str> {
     Ok(&source[(start_pos)..(end_pos + 1)])
 }
 
-fn embed_internal(tokens: impl Into<TokenStream2>, ignore: bool) -> Result<TokenStream2> {
+fn embed_internal(tokens: impl Into<TokenStream2>, lang: MarkdownLanguage) -> Result<TokenStream2> {
     let args = parse2::<EmbedArgs>(tokens.into())?;
     let source_code = match fs::read_to_string(args.file_path.value()) {
         Ok(src) => src,
@@ -531,15 +573,107 @@ fn embed_internal(tokens: impl Into<TokenStream2>, ignore: bool) -> Result<Token
         let mut results: Vec<String> = Vec::new();
         for item in visitor.results {
             let excerpt = source_excerpt(&source_code, &item)?;
-            let example = into_example(excerpt, ignore);
+            let example = into_example(excerpt, lang);
             results.push(example);
         }
         results.join("\n")
     } else {
-        into_example(source_code.as_str(), ignore)
+        into_example(source_code.as_str(), lang)
     };
 
     Ok(quote!(#output))
+}
+
+#[derive(Parse)]
+struct CompileMarkdownArgs {
+    input_dir: LitStr,
+    #[prefix(Token![,])]
+    output_dir: LitStr,
+}
+
+fn compile_markdown_internal(tokens: impl Into<TokenStream2>) -> Result<TokenStream2> {
+    let args = parse2::<CompileMarkdownArgs>(tokens.into())?;
+    compile_markdown_dir(args.input_dir.value(), args.output_dir.value())?;
+    Ok(quote!())
+}
+
+fn transpose_subpath<P: AsRef<Path>>(path: P, target_dir: P) -> PathBuf {
+    Path::join(
+        target_dir.as_ref(),
+        path.as_ref().components().skip(1).collect::<PathBuf>(),
+    )
+}
+
+fn compile_markdown_dir<P: AsRef<Path>>(input_dir: P, output_dir: P) -> Result<()> {
+    for entry in WalkDir::new(input_dir)
+        .into_iter()
+        .filter_map(std::result::Result::ok)
+        .filter(|e| {
+            if !e.file_type().is_file() && !e.file_type().is_symlink() {
+                return false;
+            }
+            let Some(ext) = e.path().extension() else { return false };
+            if ext.eq_ignore_ascii_case("md") {
+                return true;
+            }
+            false
+        })
+    {
+        let src_path = entry.path();
+        let dest_path = transpose_subpath(src_path, output_dir.as_ref());
+        println!(
+            "expanding '{}' to '{}'...",
+            src_path.display(),
+            dest_path.display()
+        );
+        let Ok(source) = fs::read_to_string(src_path) else {
+            return Err(Error::new(
+                Span::call_site(),
+                format!("Failed to read markdown file at '{}'", src_path.display())
+            ));
+        };
+        compile_markdown_source(source.as_str())?;
+    }
+    Ok(())
+}
+
+fn compile_markdown_source<S: AsRef<str>>(source: S) -> Result<String> {
+    let source = source.as_ref();
+    lazy_static! {
+        static ref HTML_COMMENT: Regex = Regex::new(r"<!--[\s\S]*?-->").unwrap();
+    }
+    let mut output: Vec<String> = Vec::new();
+    let mut prev_end = 0;
+    for m in HTML_COMMENT.find_iter(source) {
+        // push prefix
+        output.push(String::from(&source[prev_end..m.start()]));
+        // get comment
+        let orig_comment = &source[m.start()..m.end()];
+        // strip <!-- -->
+        let comment = &orig_comment[4..(orig_comment.len() - 3)].trim();
+        if comment.starts_with("docify") {
+            let args = parse2::<EmbedCommentCall>(comment.parse()?)?.args;
+            let compiled =
+                embed_internal(args.to_token_stream(), MarkdownLanguage::Rust)?.to_string();
+            output.push(compiled);
+        } else {
+            output.push(String::from(orig_comment));
+        }
+        prev_end = m.end();
+    }
+    // push remaining portion of document if applicable
+    if prev_end < source.len() - 1 {
+        output.push(String::from(&source[prev_end..]));
+    }
+    Ok(output.join(""))
+}
+
+#[proc_macro]
+pub fn compile_markdown(tokens: TokenStream) -> TokenStream {
+    match compile_markdown_internal(tokens) {
+        Ok(tokens) => tokens.into(),
+        Err(err) => err.to_compile_error().into(),
+    }
 }
 
 #[cfg(test)]
