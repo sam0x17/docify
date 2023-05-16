@@ -68,6 +68,8 @@ fn item_attributes(item: &Item) -> &Vec<Attribute> {
         _ => EMPTY,
     }
 }
+
+/// Sets attributes on any [`Item`], if applicable (panics for unsupported!)
 fn set_item_attributes(item: &mut Item, attrs: Vec<Attribute>) {
     match item {
         Item::Const(c) => c.attrs = attrs,
@@ -148,11 +150,13 @@ pub fn export(attr: TokenStream, tokens: TokenStream) -> TokenStream {
     }
 }
 
+/// Used to parse args for `#[export(..)]`
 #[derive(Parse)]
 struct ExportAttr {
     ident: Option<Ident>,
 }
 
+/// Internal implementation for `#[export]`
 fn export_internal(
     attr: impl Into<TokenStream2>,
     tokens: impl Into<TokenStream2>,
@@ -269,6 +273,7 @@ pub fn embed_run(tokens: TokenStream) -> TokenStream {
     }
 }
 
+/// Used to parse args for `docify::embed!(..)`
 #[derive(Parse)]
 struct EmbedArgs {
     file_path: LitStr,
@@ -293,6 +298,8 @@ mod keywords {
     custom_keyword!(embed);
 }
 
+/// Used to parse a full `docify::embed!(..)` call, as seen in markdown documents and other
+/// embedded settings
 #[derive(Parse)]
 struct EmbedCommentCall {
     #[prefix(keywords::docify)]
@@ -306,6 +313,8 @@ struct EmbedCommentCall {
     _semi: Option<Token![;]>,
 }
 
+/// This corresponds with the string immediately following the "```" in codeblocks. Blank means
+/// no language is specified. Ignore will cause the example not to run in rust docs.
 #[derive(Copy, Clone, Eq, PartialEq)]
 enum MarkdownLanguage {
     Ignore,
@@ -313,6 +322,7 @@ enum MarkdownLanguage {
     Blank,
 }
 
+/// Converts a source string to a codeblocks wrapped example
 fn into_example(st: &str, lang: MarkdownLanguage) -> String {
     let mut lines: Vec<String> = Vec::new();
     match lang {
@@ -327,6 +337,7 @@ fn into_example(st: &str, lang: MarkdownLanguage) -> String {
     lines.join("\n")
 }
 
+/// Visitor pattern for finding items
 struct ItemVisitor {
     search: Ident,
     results: Vec<Item>,
@@ -389,6 +400,8 @@ impl<'ast> Visit<'ast> for ItemVisitor {
     }
 }
 
+/// Abstraction for a character that has been transposed/offset from its original position in
+/// the original string in which it appeared (i.e. if the string has been compressed in some way)
 #[derive(Copy, Clone, Eq, PartialEq)]
 struct OffsetChar {
     char: char,
@@ -401,6 +414,7 @@ impl OffsetChar {
     }
 }
 
+/// Represents the types of regex-based entities we can detect. Used with [`CompressedString`].
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum EntityType {
     LineComment,
@@ -410,6 +424,7 @@ enum EntityType {
     // StringLiteral,
 }
 
+/// Used to mark an entity within a piece of source code. Used with [`CompressedString`].
 #[derive(Clone, PartialEq, Eq)]
 struct SourceEntity {
     start: usize,
@@ -426,12 +441,15 @@ impl SourceEntity {
         }
     }
 
+    /// Marks the character positions corresponding with this entity as belonging to this
+    /// entity in the enclosing [`CompressedString`].
     pub fn claim(&self, claimed: &mut Vec<Option<SourceEntity>>) {
         for i in self.start..(self.end + 1) {
             claimed[i] = Some(self.clone());
         }
     }
 
+    /// Returns `true` if this entity already appears in the specified claimed vec
     pub fn is_claimed(&self, claimed: &Vec<Option<SourceEntity>>) -> bool {
         claimed[(self.start + self.end) / 2].is_some()
     }
@@ -445,6 +463,9 @@ impl SourceEntity {
     // }
 }
 
+/// Represents a [`String`] that has been compressed in some way, and includes data structures
+/// allowing us to map individual characters back to their original positions in the
+/// uncompressed version of the [`String`].
 struct CompressedString {
     chars: HashMap<usize, OffsetChar>,
     chars_arr: Vec<OffsetChar>,
@@ -513,7 +534,8 @@ impl From<&String> for CompressedString {
 }
 
 /// Finds and returns the specified [`Item`] within a source text string and returns the exact
-/// source code of that item, without any formatting changes
+/// source code of that item, without any formatting changes. If span locations are stabilized,
+/// this can be removed along with most of the [`CompressedString`] machinery.
 fn source_excerpt<'a>(source: &'a String, item: &'a Item) -> Result<&'a str> {
     // note: can't rely on span locations because this requires nightly and it turns out the
     // spans for most items do not actually fully enclose them, sometimes just the ident, etc
@@ -537,6 +559,7 @@ fn source_excerpt<'a>(source: &'a String, item: &'a Item) -> Result<&'a str> {
     Ok(&source[(start_pos)..(end_pos + 1)])
 }
 
+/// Inner version of [`embed_internal`] that just returns the result as a [`String`].
 fn embed_internal_str(tokens: impl Into<TokenStream2>, lang: MarkdownLanguage) -> Result<String> {
     let args = parse2::<EmbedArgs>(tokens.into())?;
     let source_code = match fs::read_to_string(args.file_path.value()) {
@@ -586,11 +609,13 @@ fn embed_internal_str(tokens: impl Into<TokenStream2>, lang: MarkdownLanguage) -
     Ok(output)
 }
 
+/// Internal implementation behind [`macro@embed`].
 fn embed_internal(tokens: impl Into<TokenStream2>, lang: MarkdownLanguage) -> Result<TokenStream2> {
     let output = embed_internal_str(tokens, lang)?;
     Ok(quote!(#output))
 }
 
+/// Used to parse args for [`macro@compile_markdown`].
 #[derive(Parse)]
 struct CompileMarkdownArgs {
     input: LitStr,
@@ -599,6 +624,7 @@ struct CompileMarkdownArgs {
     output: Option<LitStr>,
 }
 
+/// Internal implementation behind [`macro@compile_markdown`].
 fn compile_markdown_internal(tokens: impl Into<TokenStream2>) -> Result<TokenStream2> {
     let args = parse2::<CompileMarkdownArgs>(tokens.into())?;
     let input_path = std::path::PathBuf::from(&args.input.value());
@@ -649,6 +675,7 @@ fn compile_markdown_internal(tokens: impl Into<TokenStream2>) -> Result<TokenStr
     }
 }
 
+/// Takes in a `path` and re-writes it as a subpath in `target_dir`.
 fn transpose_subpath<P: AsRef<Path>>(path: P, target_dir: P) -> PathBuf {
     Path::join(
         target_dir.as_ref(),
@@ -656,6 +683,7 @@ fn transpose_subpath<P: AsRef<Path>>(path: P, target_dir: P) -> PathBuf {
     )
 }
 
+/// Overwrites or creates a file at the specified path and populate it with the specified data
 fn overwrite_file<P: AsRef<Path>, D: AsRef<[u8]>>(path: P, data: D) -> std::io::Result<()> {
     let mut f = OpenOptions::new()
         .write(true)
@@ -667,6 +695,7 @@ fn overwrite_file<P: AsRef<Path>, D: AsRef<[u8]>>(path: P, data: D) -> std::io::
     Ok(())
 }
 
+/// Docifies a directory of markdown files
 fn compile_markdown_dir<P: AsRef<Path>>(input_dir: P, output_dir: P) -> Result<()> {
     // mkdir -p output_dir
     let Ok(_) = fs::create_dir_all(output_dir.as_ref()) else {
@@ -724,6 +753,7 @@ fn compile_markdown_dir<P: AsRef<Path>>(input_dir: P, output_dir: P) -> Result<(
     Ok(())
 }
 
+/// Docifies the specified markdown source string
 fn compile_markdown_source<S: AsRef<str>>(source: S) -> Result<String> {
     let source = source.as_ref();
     lazy_static! {
@@ -754,6 +784,47 @@ fn compile_markdown_source<S: AsRef<str>>(source: S) -> Result<String> {
     Ok(output.join(""))
 }
 
+/// Allows you to use [`docify::embed!(..)`](`macro@embed``) within markdown source files via
+/// HTML comments and compiles the result for you (at compile-time).
+///
+/// The macro supports embed syntax within markdown files like the following:
+/// ```markdown
+/// # This is some markdown
+/// <!-- docify::embed!("some/rust/file.rs", some_ident) -->
+/// ```
+///
+/// Which would expand to the `some_ident` exported item in `some/rust/file.rs` expanding into
+/// a Rust codeblock as a replacement for the HTML comment, i.e.:
+///
+/// ````markdown
+/// # This is some markdown
+/// ```rust
+/// fn hello_world() {
+///     println!("hello!");
+/// }
+/// ```
+/// ````
+///
+/// There are two supported arguments, of the form:
+/// ```ignore
+/// docify::compile_markdown!("input_path", "output_path");
+/// ```
+///
+/// If `input_path` is a directory, then all markdown files (recursively) found within
+/// `input_path` will be processed (expanded) and placed in their respective locations relative
+/// to `output_path`.
+///
+/// If `input_path` is a file and `output_path` is specified, then `input_path` will be loaded
+/// as a markdown file, processed, and saved to `output_path` (which must be a file path, not a
+/// directory).
+///
+/// If only `input_path` is specified, then it is assumed to be a file, which is loaded as
+/// markdown, processed, and the result is returned as a string literal.
+///
+/// While files are compiling, terminal output is produced such as:
+/// ```txt
+/// Docifying fixtures/subfolder/file_2.md => test_bin/subfolder/file_2.md
+/// ```
 #[proc_macro]
 pub fn compile_markdown(tokens: TokenStream) -> TokenStream {
     match compile_markdown_internal(tokens) {
