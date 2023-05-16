@@ -61,9 +61,5 @@
 //! A newly added feature allows compiling entire directories of markdown files with HTML
 //! comments that contain regular `docify::embed!(..)` calls. See
 //! [`compile_markdown!(..)`](`macro@compile_markdown`) for more info.
-//!
-//! ## More Info
-//!
-//! For more documentation, features, and examples, check out [the docs](https://docs.rs/docify)!
 
 pub use docify_macros::*;
