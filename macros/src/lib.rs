@@ -1,6 +1,7 @@
 //! This crate contains the proc macros used by [docify](https://crates.io/crates/docify).
 
 use colored::*;
+use common_path::common_path;
 use derive_syn_parse::Parse;
 use lazy_static::lazy_static;
 use proc_macro::TokenStream;
@@ -685,10 +686,18 @@ fn compile_markdown_internal(tokens: impl Into<TokenStream2>) -> Result<TokenStr
 }
 
 /// Takes in a `path` and re-writes it as a subpath in `target_dir`.
-fn transpose_subpath<P: AsRef<Path>>(path: P, target_dir: P) -> PathBuf {
+fn transpose_subpath<P1: AsRef<Path>, P2: AsRef<Path>, P3: AsRef<Path>>(
+    input_dir: P1,
+    path: P2,
+    target_dir: P3,
+) -> PathBuf {
+    let prefix = common_path(input_dir, &path).unwrap();
     Path::join(
         target_dir.as_ref(),
-        path.as_ref().components().skip(1).collect::<PathBuf>(),
+        path.as_ref()
+            .components()
+            .skip(prefix.components().collect::<Vec<_>>().len())
+            .collect::<PathBuf>(),
     )
 }
 
@@ -714,7 +723,7 @@ fn compile_markdown_dir<P: AsRef<Path>>(input_dir: P, output_dir: P) -> Result<(
         ));
     };
     // recursively walk all files in output_dir
-    for entry in WalkDir::new(input_dir)
+    for entry in WalkDir::new(&input_dir)
         .into_iter()
         .filter_map(std::result::Result::ok)
         .filter(|e| {
@@ -729,7 +738,7 @@ fn compile_markdown_dir<P: AsRef<Path>>(input_dir: P, output_dir: P) -> Result<(
         })
     {
         let src_path = entry.path();
-        let dest_path = transpose_subpath(src_path, output_dir.as_ref());
+        let dest_path = transpose_subpath(&input_dir, &src_path, &output_dir);
         println!(
             "{} {} {} {}",
             "Docifying".green().bold(),
