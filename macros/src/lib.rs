@@ -629,7 +629,16 @@ fn compile_markdown_internal(tokens: impl Into<TokenStream2>) -> Result<TokenStr
     let args = parse2::<CompileMarkdownArgs>(tokens.into())?;
     let input_path = std::path::PathBuf::from(&args.input.value());
     if !input_path.exists() {
-        return Err(Error::new(args.input.span(), "Path does not exist"));
+        return Err(Error::new(
+            args.input.span(),
+            format!(
+                "Could not read the specified path '{}' relative to '{}'.",
+                input_path.display(),
+                env::current_dir()
+                    .expect("Could not read current directory!")
+                    .display()
+            ),
+        ));
     }
     if let Some(output) = args.output {
         if input_path.is_dir() {
