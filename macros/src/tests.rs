@@ -52,20 +52,30 @@ fn test_export_basic_parsing_invalid() {
 
 #[test]
 fn test_compile_markdown_dir() {
-    compile_markdown_dir("fixtures", "/tmp/some/dir").unwrap();
+    compile_markdown_dir("fixtures", "test_bin").unwrap();
 }
 
 #[test]
 fn test_compile_markdown_source_positive() {
-    assert!(compile_markdown_source(
+    assert_eq!(
+        compile_markdown_source(
+            "this is some markdown\n\
+            this is some more markdown\n\
+            # this is a title\n\
+            <!-- docify::embed!(\"fixtures/file.rs\", some_fn) -->\n\
+            this is some more text\n",
+        )
+        .unwrap(),
         "this is some markdown\n\
         this is some more markdown\n\
         # this is a title\n\
-        <!-- docify::embed!(\"fixtures/file.rs\", some_fn) -->\n\
-        this is some more text\n",
-    )
-    .unwrap()
-    .contains("foo"));
+        ```rust\n\
+        fn some_fn() {\n    \
+            println!(\"foo\");\n\
+        }\n\
+        ```\n\
+        this is some more text\n"
+    );
     assert!(compile_markdown_source(
         "this is some markdown\n\
         this is some more markdown\n\

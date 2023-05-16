@@ -1,5 +1,6 @@
 //! This crate contains the proc macros used by [docify](https://crates.io/crates/docify).
 
+use colored::*;
 use derive_syn_parse::Parse;
 use lazy_static::lazy_static;
 use proc_macro::TokenStream;
@@ -8,7 +9,9 @@ use quote::{quote, ToTokens};
 use regex::Regex;
 use std::{
     collections::HashMap,
-    env, fs,
+    env,
+    fs::{self, OpenOptions},
+    io::Write,
     path::{Path, PathBuf},
 };
 use syn::{
@@ -534,7 +537,7 @@ fn source_excerpt<'a>(source: &'a String, item: &'a Item) -> Result<&'a str> {
     Ok(&source[(start_pos)..(end_pos + 1)])
 }
 
-fn embed_internal(tokens: impl Into<TokenStream2>, lang: MarkdownLanguage) -> Result<TokenStream2> {
+fn embed_internal_str(tokens: impl Into<TokenStream2>, lang: MarkdownLanguage) -> Result<String> {
     let args = parse2::<EmbedArgs>(tokens.into())?;
     let source_code = match fs::read_to_string(args.file_path.value()) {
         Ok(src) => src,
@@ -580,7 +583,11 @@ fn embed_internal(tokens: impl Into<TokenStream2>, lang: MarkdownLanguage) -> Re
     } else {
         into_example(source_code.as_str(), lang)
     };
+    Ok(output)
+}
 
+fn embed_internal(tokens: impl Into<TokenStream2>, lang: MarkdownLanguage) -> Result<TokenStream2> {
+    let output = embed_internal_str(tokens, lang)?;
     Ok(quote!(#output))
 }
 
@@ -604,7 +611,26 @@ fn transpose_subpath<P: AsRef<Path>>(path: P, target_dir: P) -> PathBuf {
     )
 }
 
+fn overwrite_file<P: AsRef<Path>, D: AsRef<[u8]>>(path: P, data: D) -> std::io::Result<()> {
+    let mut f = OpenOptions::new()
+        .write(true)
+        .truncate(true)
+        .create(true)
+        .open(path)?;
+    f.write_all(data.as_ref())?;
+    f.flush()?;
+    Ok(())
+}
+
 fn compile_markdown_dir<P: AsRef<Path>>(input_dir: P, output_dir: P) -> Result<()> {
+    // mkdir -p output_dir
+    let Ok(_) = fs::create_dir_all(output_dir.as_ref()) else {
+        return Err(Error::new(
+            Span::call_site(),
+            format!("Failed to create output directory '{}'", output_dir.as_ref().display())
+        ));
+    };
+    // recursively walk all files in output_dir
     for entry in WalkDir::new(input_dir)
         .into_iter()
         .filter_map(std::result::Result::ok)
@@ -622,9 +648,11 @@ fn compile_markdown_dir<P: AsRef<Path>>(input_dir: P, output_dir: P) -> Result<(
         let src_path = entry.path();
         let dest_path = transpose_subpath(src_path, output_dir.as_ref());
         println!(
-            "expanding '{}' to '{}'...",
+            "{} {} {} {}",
+            "Docifying".green().bold(),
             src_path.display(),
-            dest_path.display()
+            "=>", // TODO: fancy arrow
+            dest_path.display(),
         );
         let Ok(source) = fs::read_to_string(src_path) else {
             return Err(Error::new(
@@ -632,7 +660,21 @@ fn compile_markdown_dir<P: AsRef<Path>>(input_dir: P, output_dir: P) -> Result<(
                 format!("Failed to read markdown file at '{}'", src_path.display())
             ));
         };
-        compile_markdown_source(source.as_str())?;
+        let compiled = compile_markdown_source(source.as_str())?;
+        if let Some(parent) = dest_path.parent() {
+            let Ok(_) = fs::create_dir_all(parent) else {
+                return Err(Error::new(
+                    Span::call_site(),
+                    format!("Failed to create directory '{}'", parent.display())
+                ));
+            };
+        }
+        let Ok(_) = overwrite_file(&dest_path, &compiled) else {
+            return Err(Error::new(
+                Span::call_site(),
+                format!("Failed to write to '{}'", dest_path.display())
+            ));
+        };
     }
     Ok(())
 }
@@ -653,8 +695,7 @@ fn compile_markdown_source<S: AsRef<str>>(source: S) -> Result<String> {
         let comment = &orig_comment[4..(orig_comment.len() - 3)].trim();
         if comment.starts_with("docify") {
             let args = parse2::<EmbedCommentCall>(comment.parse()?)?.args;
-            let compiled =
-                embed_internal(args.to_token_stream(), MarkdownLanguage::Rust)?.to_string();
+            let compiled = embed_internal_str(args.to_token_stream(), MarkdownLanguage::Rust)?;
             output.push(compiled);
         } else {
             output.push(String::from(orig_comment));
