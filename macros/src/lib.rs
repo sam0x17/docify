@@ -765,6 +765,9 @@ fn compile_markdown_dir<P: AsRef<Path>>(input_dir: P, output_dir: P) -> Result<(
 /// Docifies the specified markdown source string
 fn compile_markdown_source<S: AsRef<str>>(source: S) -> Result<String> {
     let source = source.as_ref();
+    if source.is_empty() {
+        return Ok(String::from(""));
+    }
     lazy_static! {
         static ref HTML_COMMENT: Regex = Regex::new(r"<!--[\s\S]*?-->").unwrap();
     }
