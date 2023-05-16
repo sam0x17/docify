@@ -12,7 +12,7 @@
 //! since you can avoid boilerplate from the surrounding code and just focus on showcasing the item
 //! you want to highlight.
 //!
-//! ## Usage
+//! ## General Usage
 //!
 //! Using `docify` is simple. First mark the tests/examples/items that you wish to embed with
 //! `#[docify::export]`, such as the following:
@@ -55,6 +55,14 @@
 //! ```
 //!
 //! You can embed any item capable of having an attribute macro attached to it.
+//!
+//! ## Markdown
+//!
+//! A newly added feature allows compiling entire directories of markdown files with HTML
+//! comments that contain regular `docify::embed!(..)` calls. See
+//! [`compile_markdown!(..)`](`macro@compile_markdown`) for more info.
+//!
+//! ## More Info
 //!
 //! For more documentation, features, and examples, check out [the docs](https://docs.rs/docify)!
 
