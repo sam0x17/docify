@@ -593,15 +593,60 @@ fn embed_internal(tokens: impl Into<TokenStream2>, lang: MarkdownLanguage) -> Re
 
 #[derive(Parse)]
 struct CompileMarkdownArgs {
-    input_dir: LitStr,
-    #[prefix(Token![,])]
-    output_dir: LitStr,
+    input: LitStr,
+    #[prefix(Option<Token![,]> as comma)]
+    #[parse_if(comma.is_some())]
+    output: Option<LitStr>,
 }
 
 fn compile_markdown_internal(tokens: impl Into<TokenStream2>) -> Result<TokenStream2> {
     let args = parse2::<CompileMarkdownArgs>(tokens.into())?;
-    compile_markdown_dir(args.input_dir.value(), args.output_dir.value())?;
-    Ok(quote!())
+    let input_path = std::path::PathBuf::from(&args.input.value());
+    if !input_path.exists() {
+        return Err(Error::new(args.input.span(), "Path does not exist"));
+    }
+    if let Some(output) = args.output {
+        if input_path.is_dir() {
+            compile_markdown_dir(args.input.value(), output.value())?;
+        } else {
+            println!(
+                "{} {} {} {}",
+                "Docifying".green().bold(),
+                input_path.display(),
+                "=>", // TODO: fancy arrow
+                output.value(),
+            );
+            let Ok(source) = fs::read_to_string(&input_path) else {
+                return Err(Error::new(
+                    Span::call_site(),
+                    format!("Failed to read markdown file at '{}'", input_path.display())
+                ));
+            };
+            let compiled = compile_markdown_source(source.as_str())?;
+            let Ok(_) = overwrite_file(output.value(), &compiled) else {
+                return Err(Error::new(
+                    Span::call_site(),
+                    format!("Failed to write to '{}'", output.value())
+                ));
+            };
+        }
+        Ok(quote!())
+    } else {
+        if input_path.is_dir() {
+            return Err(Error::new(
+                args.input.span(),
+                "Only individual files are supported with no output path, you specified a directory."
+            ));
+        }
+        let Ok(source) = fs::read_to_string(&input_path) else {
+            return Err(Error::new(
+                Span::call_site(),
+                format!("Failed to read markdown file at '{}'", input_path.display())
+            ));
+        };
+        let compiled = compile_markdown_source(source.as_str())?;
+        Ok(quote!(#compiled))
+    }
 }
 
 fn transpose_subpath<P: AsRef<Path>>(path: P, target_dir: P) -> PathBuf {

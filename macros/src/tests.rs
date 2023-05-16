@@ -56,7 +56,31 @@ fn test_compile_markdown_dir() {
 }
 
 #[test]
-fn test_compile_markdown_source_positive() {
+fn test_compile_markdown_valid() {
+    compile_markdown_internal(quote!("fixtures", "test_bin")).unwrap();
+    compile_markdown_internal(quote!("fixtures/file_1.md", "test_bin/alternate_output.md"))
+        .unwrap();
+    assert_eq!(
+        compile_markdown_internal(quote!("fixtures/file_1.md"))
+            .unwrap()
+            .to_string(),
+        "\"# This is a markdown file\\n\\n```rust\\nstruct \
+        Something;\\n```\\n<!-- this is a comment -->\\n\\n`\
+        ``rust\\nfn some_fn() {\\n    println!(\\\"foo\\\");\
+        \\n}\\n```\\n\\nSome text this is some text\\n\""
+    );
+}
+
+#[test]
+fn test_compile_markdown_invalid() {
+    assert!(compile_markdown_internal(quote!("&97298", "79*&(")).is_err());
+    assert!(compile_markdown_internal(quote!("&97298", "test_bin")).is_err());
+    assert!(compile_markdown_internal(quote!("fixtures")).is_err());
+    assert!(compile_markdown_internal(quote!("fixtures/file_1.md", "test_bin")).is_err());
+}
+
+#[test]
+fn test_compile_markdown_source_valid() {
     assert_eq!(
         compile_markdown_source(
             "this is some markdown\n\
@@ -125,7 +149,7 @@ fn test_compile_markdown_source_positive() {
 }
 
 #[test]
-fn test_compile_markdown_source_negative() {
+fn test_compile_markdown_source_invalid() {
     assert!(compile_markdown_source(
         "# this is a title\n\
         <!-- docify:embed!(\"fixtures/file.rs\", some_fn) -->\n\
