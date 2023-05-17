@@ -1,9 +1,9 @@
 # Docify
 
+[![Crates.io](https://img.shields.io/crates/v/docify)](https://crates.io/crates/docify)
+[![docs.rs](https://img.shields.io/docsrs/docify?label=docs)](https://docs.rs/docify/latest/docify/)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/sam0x17/docify/ci.yaml)](https://github.com/sam0x17/docify/actions/workflows/ci.yaml?query=branch%3Amain)
 [![MIT License](https://img.shields.io/github/license/sam0x17/docify)](https://github.com/sam0x17/docify/blob/main/LICENSE)
-[![Crates.io](https://img.shields.io/crates/d/docify)](https://crates.io/crates/docify)
-[![docs.rs](https://img.shields.io/docsrs/docify?label=docs)](https://docs.rs/docify/latest/docify/)
 
 This crate provides a simple set of rust macros that allow you to dynamically embed tests and
 examples from elsewhere in your workspace directly within rust docs comments, with the option
