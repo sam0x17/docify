@@ -422,6 +422,8 @@ enum EntityType {
     MultiLineComment,
     DocComment,
     DocCommentAttr,
+    CodeBlock,
+    HtmlComment,
     // StringLiteral,
 }
 
@@ -779,10 +781,21 @@ fn compile_markdown_source<S: AsRef<str>>(source: S) -> Result<String> {
     }
     lazy_static! {
         static ref HTML_COMMENT: Regex = Regex::new(r"<!--[\s\S]*?-->").unwrap();
+        static ref MARKDOWN_CODEBLOCK: Regex = Regex::new(r"```[\s\S]*?```").unwrap();
+    }
+    let mut claimed: Vec<Option<SourceEntity>> = source.chars().map(|_| None).collect();
+    for m in MARKDOWN_CODEBLOCK.find_iter(source) {
+        let entity = SourceEntity::new(m.start(), m.end(), EntityType::CodeBlock);
+        entity.claim(&mut claimed);
     }
     let mut output: Vec<String> = Vec::new();
     let mut prev_end = 0;
     for m in HTML_COMMENT.find_iter(source) {
+        let entity = SourceEntity::new(m.start(), m.end(), EntityType::HtmlComment);
+        if entity.is_claimed(&claimed) {
+            // skip HTML comments that are inside of codeblocks
+            continue;
+        }
         // push prefix
         output.push(String::from(&source[prev_end..m.start()]));
         // get comment
