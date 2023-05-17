@@ -37,4 +37,9 @@ pub struct LineComments;
 #[doc = docify::embed!("examples/samples.rs", wonky_comment_example)]
 pub struct WonkyComments;
 
+/// This will compile all markdown files in the `markdown_source` directory to `markdown_bin`
+/// when `cargo doc` is run, handling any doc embed calls as it goes
+#[cfg(doc)]
+docify::compile_markdown!("examples/markdown_source", "examples/markdown_bin");
+
 fn main() {}
