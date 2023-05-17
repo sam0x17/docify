@@ -1,6 +1,6 @@
 [package]
 name = "docify_macros"
-version = "0.1.3"
+version = "0.1.4"
 edition = "2021"
 authors = ["sam0x17"]
 license = "MIT"
