@@ -429,15 +429,15 @@ impl SourceEntity {
 
     /// Marks the character positions corresponding with this entity as belonging to this
     /// entity in the enclosing [`CompressedString`].
-    pub fn claim(&self, claimed: &mut Vec<Option<SourceEntity>>) {
+    pub fn claim(&self, claimed: &mut Vec<bool>) {
         for i in self.start..(self.end + 1) {
-            claimed[i] = Some(self.clone());
+            claimed[i] = true;
         }
     }
 
     /// Returns `true` if this entity already appears in the specified claimed vec
-    pub fn is_claimed(&self, claimed: &Vec<Option<SourceEntity>>) -> bool {
-        claimed[(self.start + self.end) / 2].is_some()
+    pub fn is_claimed(&self, claimed: &Vec<bool>) -> bool {
+        claimed[(self.start + self.end) / 2]
     }
 
     // pub fn value<'a>(&self, source: &'a String) -> &'a str {
@@ -473,7 +473,7 @@ impl From<&String> for CompressedString {
             // static ref STRING_LIT: Regex = Regex::new(r#"("([^"\\]|\\[\s\S])*")"#).unwrap();
         }
         let mut entities: Vec<SourceEntity> = Vec::new();
-        let mut claimed: Vec<Option<SourceEntity>> = value.chars().map(|_| None).collect();
+        let mut claimed: Vec<bool> = value.chars().map(|_| false).collect();
         for m in DOC_COMMENT.find_iter(value) {
             let entity = SourceEntity::new(m.start(), m.end());
             entity.claim(&mut claimed);
@@ -507,7 +507,7 @@ impl From<&String> for CompressedString {
         let chars: Vec<char> = value.chars().collect();
         let mut cursor = 0;
         for (i, c) in chars.iter().enumerate() {
-            if claimed[i].is_some() || c.is_whitespace() {
+            if claimed[i] || c.is_whitespace() {
                 continue;
             }
             let oc = OffsetChar::new(*c, i);
@@ -766,7 +766,7 @@ fn compile_markdown_source<S: AsRef<str>>(source: S) -> Result<String> {
         static ref HTML_COMMENT: Regex = Regex::new(r"<!--[\s\S]*?-->").unwrap();
         static ref MARKDOWN_CODEBLOCK: Regex = Regex::new(r"```[\s\S]*?```").unwrap();
     }
-    let mut claimed: Vec<Option<SourceEntity>> = source.chars().map(|_| None).collect();
+    let mut claimed: Vec<bool> = source.chars().map(|_| false).collect();
     for m in MARKDOWN_CODEBLOCK.find_iter(source) {
         let entity = SourceEntity::new(m.start(), m.end());
         entity.claim(&mut claimed);
