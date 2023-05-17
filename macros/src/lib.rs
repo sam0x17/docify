@@ -415,33 +415,16 @@ impl OffsetChar {
     }
 }
 
-/// Represents the types of regex-based entities we can detect. Used with [`CompressedString`].
-#[derive(Debug, Clone, PartialEq, Eq)]
-enum EntityType {
-    LineComment,
-    MultiLineComment,
-    DocComment,
-    DocCommentAttr,
-    CodeBlock,
-    HtmlComment,
-    // StringLiteral,
-}
-
 /// Used to mark an entity within a piece of source code. Used with [`CompressedString`].
 #[derive(Clone, PartialEq, Eq)]
 struct SourceEntity {
     start: usize,
     end: usize,
-    entity_type: EntityType,
 }
 
 impl SourceEntity {
-    pub fn new(start: usize, end: usize, entity_type: EntityType) -> SourceEntity {
-        SourceEntity {
-            start,
-            end,
-            entity_type,
-        }
+    pub fn new(start: usize, end: usize) -> SourceEntity {
+        SourceEntity { start, end }
     }
 
     /// Marks the character positions corresponding with this entity as belonging to this
@@ -492,26 +475,26 @@ impl From<&String> for CompressedString {
         let mut entities: Vec<SourceEntity> = Vec::new();
         let mut claimed: Vec<Option<SourceEntity>> = value.chars().map(|_| None).collect();
         for m in DOC_COMMENT.find_iter(value) {
-            let entity = SourceEntity::new(m.start(), m.end(), EntityType::DocComment);
+            let entity = SourceEntity::new(m.start(), m.end());
             entity.claim(&mut claimed);
             entities.push(entity);
         }
         for m in DOC_COMMENT_ATTR.find_iter(value) {
-            let entity = SourceEntity::new(m.start(), m.end(), EntityType::DocCommentAttr);
+            let entity = SourceEntity::new(m.start(), m.end());
             if !entity.is_claimed(&claimed) {
                 entity.claim(&mut claimed);
                 entities.push(entity);
             }
         }
         for m in MULTI_LINE_COMMENT.find_iter(value) {
-            let entity = SourceEntity::new(m.start(), m.end(), EntityType::MultiLineComment);
+            let entity = SourceEntity::new(m.start(), m.end());
             if !entity.is_claimed(&claimed) {
                 entity.claim(&mut claimed);
                 entities.push(entity);
             }
         }
         for m in LINE_COMMENT.find_iter(value) {
-            let entity = SourceEntity::new(m.start(), m.end(), EntityType::LineComment);
+            let entity = SourceEntity::new(m.start(), m.end());
             if !entity.is_claimed(&claimed) {
                 entity.claim(&mut claimed);
                 entities.push(entity);
@@ -785,13 +768,13 @@ fn compile_markdown_source<S: AsRef<str>>(source: S) -> Result<String> {
     }
     let mut claimed: Vec<Option<SourceEntity>> = source.chars().map(|_| None).collect();
     for m in MARKDOWN_CODEBLOCK.find_iter(source) {
-        let entity = SourceEntity::new(m.start(), m.end(), EntityType::CodeBlock);
+        let entity = SourceEntity::new(m.start(), m.end());
         entity.claim(&mut claimed);
     }
     let mut output: Vec<String> = Vec::new();
     let mut prev_end = 0;
     for m in HTML_COMMENT.find_iter(source) {
-        let entity = SourceEntity::new(m.start(), m.end(), EntityType::HtmlComment);
+        let entity = SourceEntity::new(m.start(), m.end());
         if entity.is_claimed(&claimed) {
             // skip HTML comments that are inside of codeblocks
             continue;
