@@ -37,6 +37,10 @@ pub struct LineComments;
 #[doc = docify::embed!("examples/samples.rs", wonky_comment_example)]
 pub struct WonkyComments;
 
+/// This example caused an error regression
+#[doc = docify::embed!("macros/fixtures/complicated.rs", successful_unstake)]
+pub struct KianRegression;
+
 /// This will compile all markdown files in the `markdown_source` directory to `markdown_bin`
 /// when `cargo doc` is run, handling any doc embed calls as it goes
 #[cfg(doc)]
