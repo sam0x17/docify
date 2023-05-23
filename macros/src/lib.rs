@@ -24,6 +24,10 @@ use syn::{
 };
 use walkdir::WalkDir;
 
+fn pretty_format<S: AsRef<str>>(source: S) -> String {
+    prettyplease::unparse(&syn::parse_file(source.as_ref()).unwrap())
+}
+
 /// Gets a copy of the inherent name ident of an [`Item`], if applicable.
 fn name_ident(item: &Item) -> Option<Ident> {
     match item {
@@ -585,7 +589,8 @@ fn embed_internal_str(tokens: impl Into<TokenStream2>, lang: MarkdownLanguage) -
         let mut results: Vec<String> = Vec::new();
         for item in visitor.results {
             let excerpt = source_excerpt(&source_code, &item)?;
-            let example = into_example(excerpt, lang);
+            let formatted = pretty_format(excerpt);
+            let example = into_example(formatted.as_str(), lang);
             results.push(example);
         }
         results.join("\n")
