@@ -29,7 +29,7 @@ pub struct Runnable;
 pub struct RunnableTest;
 
 /// This example has comments
-#[doc = docify::embed!("examples/samples.rs", some_example)]
+#[doc = docify::embed!("examples/samples.rs", some_complex_example)]
 pub struct LineComments;
 
 /// This example has wonky formatting that would normally get auto-correct by rustfmt but that

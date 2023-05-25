@@ -669,7 +669,6 @@ fn compile_markdown_internal(tokens: impl Into<TokenStream2>) -> Result<TokenStr
                 ));
             };
             let compiled = compile_markdown_source(source.as_str())?;
-            println!("overwriting: {}", output.display());
             let Ok(_) = overwrite_file(&output, &compiled) else {
                 return Err(Error::new(
                     Span::call_site(),

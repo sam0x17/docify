@@ -61,6 +61,13 @@
 //! A newly added feature allows compiling entire directories of markdown files with HTML
 //! comments that contain regular `docify::embed!(..)` calls. See
 //! [`compile_markdown!(..)`](`macro@compile_markdown`) for more info.
+//!
+//! There is a live example of this as well in `README.md` where this same sentence appears in
+//! the root of the repo. `README.md` is dynamically generated when `cargo doc` is run based on
+//! the contents of `.README.docify.md`.
 #![no_std]
 
 pub use docify_macros::*;
+
+#[cfg(doc)]
+compile_markdown!(".README.docify.md", "README.md");

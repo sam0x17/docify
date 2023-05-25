@@ -44,9 +44,17 @@ fn runnable() {
     assert_eq!(2 + 2, 4);
 }
 
-/// Some doc comments
+// This one gets embedded automatically in README.md and src/lib.rs!
 #[docify::export]
 fn some_example() {
+    assert_eq!(2 + 2, 4);
+    assert_eq!(2 + 3, 5);
+    assert_eq!(3 + 3, 6);
+}
+
+/// Some doc comments
+#[docify::export]
+fn some_complex_example() {
     // some comments
     /// some doc comments
     assert_eq!(2 + 2, 4);
