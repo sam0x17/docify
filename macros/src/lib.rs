@@ -28,6 +28,25 @@ fn pretty_format<S: AsRef<str>>(source: S) -> String {
     prettyplease::unparse(&syn::parse_file(source.as_ref()).unwrap())
 }
 
+fn workspace_root() -> PathBuf {
+    let mut current_dir = env::current_dir().expect("failed to unwrap env::current_dir()!");
+    let mut best_match = current_dir.clone();
+    loop {
+        let cargo_toml = current_dir.join("Cargo.toml");
+        if let Ok(cargo_toml) = fs::read_to_string(&cargo_toml) {
+            best_match = current_dir.clone();
+            if cargo_toml.contains("[workspace]") {
+                return best_match;
+            }
+        }
+        match current_dir.parent() {
+            Some(dir) => current_dir = dir.to_path_buf(),
+            None => break,
+        }
+    }
+    best_match
+}
+
 /// Gets a copy of the inherent name ident of an [`Item`], if applicable.
 fn name_ident(item: &Item) -> Option<Ident> {
     match item {
@@ -552,17 +571,16 @@ fn source_excerpt<'a>(source: &'a String, item: &'a Item) -> Result<&'a str> {
 /// Inner version of [`embed_internal`] that just returns the result as a [`String`].
 fn embed_internal_str(tokens: impl Into<TokenStream2>, lang: MarkdownLanguage) -> Result<String> {
     let args = parse2::<EmbedArgs>(tokens.into())?;
-    let source_code = match fs::read_to_string(args.file_path.value()) {
+    let root = workspace_root();
+    let file_path = root.join(args.file_path.value());
+    let source_code = match fs::read_to_string(&file_path) {
         Ok(src) => src,
         Err(_) => {
             return Err(Error::new(
                 args.file_path.span(),
                 format!(
-                    "Could not read the specified path '{}' relative to '{}'.",
-                    args.file_path.value(),
-                    env::current_dir()
-                        .expect("Could not read current directory!")
-                        .display()
+                    "Could not read the specified path '{}'.",
+                    file_path.display(),
                 ),
             ))
         }
@@ -582,7 +600,7 @@ fn embed_internal_str(tokens: impl Into<TokenStream2>, lang: MarkdownLanguage) -
                 format!(
                     "Could not find docify export item '{}' in '{}'.",
                     ident,
-                    args.file_path.value()
+                    file_path.display(),
                 ),
             ));
         }
@@ -619,28 +637,28 @@ struct CompileMarkdownArgs {
 fn compile_markdown_internal(tokens: impl Into<TokenStream2>) -> Result<TokenStream2> {
     let args = parse2::<CompileMarkdownArgs>(tokens.into())?;
     let input_path = std::path::PathBuf::from(&args.input.value());
+    let root = workspace_root();
+    let input_path = root.join(input_path);
     if !input_path.exists() {
         return Err(Error::new(
             args.input.span(),
             format!(
-                "Could not read the specified path '{}' relative to '{}'.",
+                "Could not read the specified path '{}'.",
                 input_path.display(),
-                env::current_dir()
-                    .expect("Could not read current directory!")
-                    .display()
             ),
         ));
     }
     if let Some(output) = args.output {
+        let output = root.join(output.value());
         if input_path.is_dir() {
-            compile_markdown_dir(args.input.value(), output.value())?;
+            compile_markdown_dir(input_path, format!("{}", output.display()))?;
         } else {
             println!(
                 "{} {} {} {}",
                 "Docifying".green().bold(),
                 input_path.display(),
                 "=>", // TODO: fancy arrow
-                output.value(),
+                output.display(),
             );
             let Ok(source) = fs::read_to_string(&input_path) else {
                 return Err(Error::new(
@@ -649,10 +667,11 @@ fn compile_markdown_internal(tokens: impl Into<TokenStream2>) -> Result<TokenStr
                 ));
             };
             let compiled = compile_markdown_source(source.as_str())?;
-            let Ok(_) = overwrite_file(output.value(), &compiled) else {
+            println!("overwriting: {}", output.display());
+            let Ok(_) = overwrite_file(&output, &compiled) else {
                 return Err(Error::new(
                     Span::call_site(),
-                    format!("Failed to write to '{}'", output.value())
+                    format!("Failed to write to '{}'", output.display())
                 ));
             };
         }
@@ -704,14 +723,10 @@ fn overwrite_file<P: AsRef<Path>, D: AsRef<[u8]>>(path: P, data: D) -> std::io::
 }
 
 /// Docifies a directory of markdown files
-fn compile_markdown_dir<P: AsRef<Path>>(input_dir: P, output_dir: P) -> Result<()> {
-    // mkdir -p output_dir
-    let Ok(_) = fs::create_dir_all(output_dir.as_ref()) else {
-        return Err(Error::new(
-            Span::call_site(),
-            format!("Failed to create output directory '{}'", output_dir.as_ref().display())
-        ));
-    };
+fn compile_markdown_dir<P1: AsRef<Path>, P2: AsRef<Path>>(
+    input_dir: P1,
+    output_dir: P2,
+) -> Result<()> {
     // recursively walk all files in output_dir
     for entry in WalkDir::new(&input_dir)
         .into_iter()
@@ -736,6 +751,14 @@ fn compile_markdown_dir<P: AsRef<Path>>(input_dir: P, output_dir: P) -> Result<(
             "=>", // TODO: fancy arrow
             dest_path.display(),
         );
+        if let Some(parent) = dest_path.parent() {
+            let Ok(_) = fs::create_dir_all(parent) else {
+                return Err(Error::new(
+                    Span::call_site(),
+                    format!("Failed to create output directory '{}'", parent.display())
+                ));
+            };
+        }
         let Ok(source) = fs::read_to_string(src_path) else {
             return Err(Error::new(
                 Span::call_site(),

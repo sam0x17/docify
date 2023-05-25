@@ -5,6 +5,6 @@ struct Something;
 ```
 <!-- this is a comment -->
 
-<!-- docify::embed!("fixtures/file.rs", some_fn) -->
+<!-- docify::embed!("macros/fixtures/file.rs", some_fn) -->
 
 Some text this is some text
