@@ -1,7 +1,7 @@
-//! Docify provides a simple set of rust macros, namely [`#[docify::export(..)]`](`export`)
-//! and [`docify::embed!(..)`](`embed`), that allow you to dynamically embed tests and examples
-//! at compile time from elsewhere in your workspace directly within rust docs comments, with
-//! the option to make these examples runnable.
+//! Docify provides a simple set of rust macros, namely [`#[docify::export]`](`export`) and
+//! [`docify::embed!`](`embed`), that allow you to dynamically embed tests and examples at
+//! compile time from elsewhere in your workspace directly within rust docs comments, with the
+//! option to make these examples runnable.
 //!
 //! The intent behind docify is to allow you to showcase your best examples and tests directly
 //! in your docs, without having to update them in two places every time there is a change. It
@@ -56,11 +56,11 @@
 //!
 //! You can embed any item capable of having an attribute macro attached to it.
 //!
-//! ## Markdown
+//! ## Dynamic Embedding in Markdown Files
 //!
 //! A newly added feature allows compiling entire directories of markdown files with HTML
-//! comments that contain regular `docify::embed!(..)` calls. See
-//! [`compile_markdown!(..)`](`macro@compile_markdown`) for more info.
+//! comments that contain regular [`docify::embed!`](`macro@embed`) calls. See
+//! [`compile_markdown!`](`macro@compile_markdown`) for more info.
 //!
 //! There is a live example of this as well in `README.md` where this same sentence appears in
 //! the root of the repo. `README.md` is dynamically generated when `cargo doc` is run based on
