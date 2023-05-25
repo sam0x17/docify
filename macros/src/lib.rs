@@ -28,6 +28,8 @@ fn pretty_format<S: AsRef<str>>(source: S) -> String {
     prettyplease::unparse(&syn::parse_file(source.as_ref()).unwrap())
 }
 
+/// Finds the root of the current workspace, falling back to the outer-most directory with a
+/// Cargo.toml, and then falling back to the current directory.
 fn workspace_root() -> PathBuf {
     let mut current_dir = env::current_dir().expect("failed to unwrap env::current_dir()!");
     let mut best_match = current_dir.clone();
