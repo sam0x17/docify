@@ -711,8 +711,16 @@ fn transpose_subpath<P1: AsRef<Path>, P2: AsRef<Path>, P3: AsRef<Path>>(
     )
 }
 
-/// Overwrites or creates a file at the specified path and populate it with the specified data
+/// Overwrites or creates a file at the specified path and populates it with the specified
+/// data. Will only overwrite the file if the data is different from what is already there.
 fn overwrite_file<P: AsRef<Path>, D: AsRef<[u8]>>(path: P, data: D) -> std::io::Result<()> {
+    if path.as_ref().exists() {
+        if let Ok(existing) = fs::read(path.as_ref()) {
+            if existing == data.as_ref() {
+                return Ok(());
+            }
+        }
+    }
     let mut f = OpenOptions::new()
         .write(true)
         .truncate(true)
