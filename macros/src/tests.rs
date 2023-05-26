@@ -82,6 +82,9 @@ fn test_compile_markdown_invalid() {
     assert!(
         compile_markdown_internal(quote!("macros/fixtures/file_1.md", "macros/test_bin")).is_err()
     );
+    assert!(compile_markdown_internal(quote!("something", "")).is_err());
+    assert!(compile_markdown_internal(quote!("", "something")).is_err());
+    assert!(compile_markdown_internal(quote!("", "")).is_err());
 }
 
 #[test]

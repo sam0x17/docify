@@ -665,6 +665,9 @@ struct CompileMarkdownArgs {
 /// Internal implementation behind [`macro@compile_markdown`].
 fn compile_markdown_internal(tokens: impl Into<TokenStream2>) -> Result<TokenStream2> {
     let args = parse2::<CompileMarkdownArgs>(tokens.into())?;
+    if args.input.value().is_empty() {
+        return Err(Error::new(args.input.span(), "Input path cannot be blank!"));
+    }
     let input_path = std::path::PathBuf::from(&args.input.value());
     let root = workspace_root();
     let input_path = root.join(input_path);
@@ -678,6 +681,12 @@ fn compile_markdown_internal(tokens: impl Into<TokenStream2>) -> Result<TokenStr
         ));
     }
     if let Some(output) = args.output {
+        if output.value().is_empty() {
+            return Err(Error::new(
+                output.span(),
+                "If specified, output path cannot be blank!",
+            ));
+        }
         let output = root.join(output.value());
         if input_path.is_dir() {
             compile_markdown_dir(input_path, format!("{}", output.display()))?;
