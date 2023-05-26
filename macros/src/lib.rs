@@ -1,6 +1,5 @@
 //! This crate contains the proc macros used by [docify](https://crates.io/crates/docify).
 
-use colored::*;
 use common_path::common_path;
 use derive_syn_parse::Parse;
 use lazy_static::lazy_static;
@@ -22,6 +21,7 @@ use syn::{
     visit::{self, Visit},
     AttrStyle, Attribute, Error, File, Ident, Item, LitStr, Meta, Result, Token,
 };
+use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 use walkdir::WalkDir;
 
 fn pretty_format<S: AsRef<str>>(source: S) -> String {
@@ -47,6 +47,33 @@ fn workspace_root() -> PathBuf {
         }
     }
     best_match
+}
+
+/// Prettifies a long path so that leading segments other than the workspace root are ignored
+fn prettify_path<P: AsRef<Path>>(path: P) -> PathBuf {
+    let path = path.as_ref();
+    if path.is_relative() {
+        return path.into();
+    }
+    let Some(prefix) = common_path(workspace_root(), path) else {
+        return path.into();
+    };
+    path.components()
+        .skip(prefix.components().collect::<Vec<_>>().len())
+        .collect::<PathBuf>()
+}
+
+const DOCIFYING: &'static str = "   Docifying ";
+
+/// Tries to write the specified string to the terminal in green+bold. Falls back to normal
+/// `print!()`. Function is infallible.
+fn write_green<S: AsRef<str>>(st: S) {
+    let mut stdout = StandardStream::stdout(ColorChoice::Always);
+    let _ = stdout.set_color(ColorSpec::new().set_fg(Some(Color::Green)).set_bold(true));
+    if let Err(_) = write!(&mut stdout, "{}", st.as_ref()) {
+        print!("{}", st.as_ref());
+    }
+    let _ = stdout.set_color(ColorSpec::new().set_fg(None).set_bold(false));
 }
 
 /// Gets a copy of the inherent name ident of an [`Item`], if applicable.
@@ -655,12 +682,12 @@ fn compile_markdown_internal(tokens: impl Into<TokenStream2>) -> Result<TokenStr
         if input_path.is_dir() {
             compile_markdown_dir(input_path, format!("{}", output.display()))?;
         } else {
+            write_green(DOCIFYING);
             println!(
-                "{} {} {} {}",
-                "Docifying".green().bold(),
-                input_path.display(),
+                "{} {} {}",
+                prettify_path(&input_path).display(),
                 "=>", // TODO: fancy arrow
-                output.display(),
+                prettify_path(&output).display(),
             );
             let Ok(source) = fs::read_to_string(&input_path) else {
                 return Err(Error::new(
@@ -753,12 +780,12 @@ fn compile_markdown_dir<P1: AsRef<Path>, P2: AsRef<Path>>(
     {
         let src_path = entry.path();
         let dest_path = transpose_subpath(&input_dir, &src_path, &output_dir);
+        write_green(DOCIFYING);
         println!(
-            "{} {} {} {}",
-            "Docifying".green().bold(),
-            src_path.display(),
+            "{} {} {}",
+            prettify_path(&src_path).display(),
             "=>", // TODO: fancy arrow
-            dest_path.display(),
+            prettify_path(&dest_path).display(),
         );
         if let Some(parent) = dest_path.parent() {
             let Ok(_) = fs::create_dir_all(parent) else {

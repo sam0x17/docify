@@ -19,6 +19,6 @@ quote = "1"
 regex = "1.8.1"
 syn = { version = "2", features = ["full", "visit"] }
 walkdir = "2"
-colored = "2"
 common-path = "1.0.0"
 prettyplease = "0.2"
+termcolor = "1.2.0"
