@@ -5,9 +5,11 @@
 [![Build Status](https://img.shields.io/github/actions/workflow/status/sam0x17/docify/ci.yaml)](https://github.com/sam0x17/docify/actions/workflows/ci.yaml?query=branch%3Amain)
 [![MIT License](https://img.shields.io/github/license/sam0x17/docify)](https://github.com/sam0x17/docify/blob/main/LICENSE)
 
-This crate provides a simple set of rust macros that allow you to dynamically embed tests and
-examples from elsewhere in your workspace directly within rust docs comments, with the option
-to make these examples runnable.
+This crate provides a simple set of rust macros, namely
+[`#[docify::export]`](https://docs.rs/docify/latest/docify/attr.export.html) and //!
+[`docify::embed!`](https://docs.rs/docify/latest/docify/macro.embed.html), that allow you to
+dynamically embed tests and examples from elsewhere in your workspace directly within rust docs
+comments, with the option to make these examples runnable.
 
 The intent behind docify is to allow you to showcase your best examples and tests directly in
 your docs, without having to update them in two places every time there is a change. It also
@@ -21,7 +23,8 @@ you want to highlight.
 ## General Usage
 
 Using `docify` is simple. First mark the tests/examples/items that you wish to embed with
-`#[docify::export]`, such as the following:
+[`#[docify::export]`](https://docs.rs/docify/latest/docify/attr.export.html), such as the
+following:
 
 ```rust
 #[docify::export]
@@ -62,6 +65,14 @@ pub struct SomeItem;
 ```
 
 You can embed any item capable of having an attribute macro attached to it.
+
+## Runnable Examples
+
+Note that you can also use the
+[`#[embed_run]`](https://docs.rs/docify/latest/docify/macro.embed_run.html) version of the
+macro to make the embedded example compile/run as part of doc tests, which is desirable in
+certain situations even though typically the example will already be running/compiling
+somewhere else in your project.
 
 ## Markdown
 
