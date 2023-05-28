@@ -21,4 +21,4 @@ syn = { version = "2", features = ["full", "visit"] }
 walkdir = "2"
 common-path = "1.0.0"
 prettyplease = "0.2"
-termcolor = "1.2.0"
+termcolor = "1"
