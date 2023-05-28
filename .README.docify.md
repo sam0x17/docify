@@ -6,7 +6,7 @@
 [![MIT License](https://img.shields.io/github/license/sam0x17/docify)](https://github.com/sam0x17/docify/blob/main/LICENSE)
 
 This crate provides a simple set of rust macros, namely
-[`#[docify::export]`](https://docs.rs/docify/latest/docify/attr.export.html) and //!
+[`#[docify::export]`](https://docs.rs/docify/latest/docify/attr.export.html) and
 [`docify::embed!`](https://docs.rs/docify/latest/docify/macro.embed.html), that allow you to
 dynamically embed tests and examples from elsewhere in your workspace directly within rust docs
 comments, with the option to make these examples runnable.
