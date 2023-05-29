@@ -12,13 +12,13 @@ description = "Support macros for docify."
 proc-macro = true
 
 [dependencies]
-derive-syn-parse = "0.1.5"
-lazy_static = "1.4.0"
+derive-syn-parse = "0.1"
+lazy_static = "1.4"
 proc-macro2 = "1"
 quote = "1"
-regex = "1.8.1"
+regex = "1"
 syn = { version = "2", features = ["full", "visit"] }
 walkdir = "2"
-common-path = "1.0.0"
+common-path = "1"
 prettyplease = "0.2"
 termcolor = "1"
