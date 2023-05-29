@@ -58,7 +58,7 @@
 //!
 //! ## Runnable Examples
 //!
-//! Note that you can also use the [`#[embed_run]`](`macro@embed_run`) version of the macro to
+//! Note that you can also use the [`embed_run!`](`macro@embed_run`) version of the macro to
 //! make the embedded example compile/run as part of doc tests, which is desirable in certain
 //! situations even though typically the example will already be running/compiling somewhere
 //! else in your project.

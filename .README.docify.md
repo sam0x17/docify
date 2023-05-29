@@ -69,7 +69,7 @@ You can embed any item capable of having an attribute macro attached to it.
 ## Runnable Examples
 
 Note that you can also use the
-[`#[embed_run]`](https://docs.rs/docify/latest/docify/macro.embed_run.html) version of the
+[`embed_run!`](https://docs.rs/docify/latest/docify/macro.embed_run.html) version of the
 macro to make the embedded example compile/run as part of doc tests, which is desirable in
 certain situations even though typically the example will already be running/compiling
 somewhere else in your project.
