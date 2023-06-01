@@ -522,6 +522,7 @@ impl From<&String> for CompressedString {
             static ref DOC_COMMENT_ATTR: Regex = Regex::new(r#"#\[doc = ".*"]"#).unwrap();
             static ref LINE_COMMENT: Regex = Regex::new(r"//.*").unwrap();
             static ref MULTI_LINE_COMMENT: Regex = Regex::new(r"/\*[\s\S]*?\*/").unwrap();
+            static ref DOCIFY_ATTRIBUTES: Regex = Regex::new(r"\#\[(?:\w+::)*export(?:\s*\(\s*(\w+)\s*\))?\]").unwrap();
             // static ref STRING_LIT: Regex = Regex::new(r#"("([^"\\]|\\[\s\S])*")"#).unwrap();
         }
         let mut entities: Vec<SourceEntity> = Vec::new();
@@ -546,6 +547,13 @@ impl From<&String> for CompressedString {
             }
         }
         for m in LINE_COMMENT.find_iter(value) {
+            let entity = SourceEntity::new(m.start(), m.end());
+            if !entity.is_claimed(&claimed) {
+                entity.claim(&mut claimed);
+                entities.push(entity);
+            }
+        }
+        for m in DOCIFY_ATTRIBUTES.find_iter(value) {
             let entity = SourceEntity::new(m.start(), m.end());
             if !entity.is_claimed(&claimed) {
                 entity.claim(&mut claimed);
