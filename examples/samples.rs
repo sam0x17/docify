@@ -83,4 +83,16 @@ mod bad {
         }
 }
 
+#[docify::export]
+#[test]
+fn test_with_normal_ordering() {
+    assert_eq!(2 + 2, 4);
+}
+
+#[test]
+#[docify::export]
+fn test_with_weird_ordering() {
+    assert_eq!(2 + 2, 4);
+}
+
 fn main() {}

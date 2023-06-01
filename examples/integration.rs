@@ -41,6 +41,14 @@ pub struct WonkyComments;
 #[doc = docify::embed!("macros/fixtures/complicated.rs", successful_unstake)]
 pub struct KianRegression;
 
+/// This has always worked
+#[doc = docify::embed!("examples/samples.rs", test_with_normal_ordering)]
+pub struct TestWithNormalOrdering;
+
+/// This example originally failed with <https://github.com/sam0x17/docify/issues/1>
+#[doc = docify::embed!("examples/samples.rs", test_with_weird_ordering)]
+pub struct TestWithWeirdOrdering;
+
 /// This will compile all markdown files in the `markdown_source` directory to `markdown_bin`
 /// when `cargo doc` is run, handling any doc embed calls as it goes
 #[cfg(doc)]
