@@ -515,6 +515,11 @@ impl CompressedString {
     }
 }
 
+lazy_static! {
+    static ref DOCIFY_ATTRIBUTES: Regex =
+        Regex::new(r"\#\[(?:\w+::)*export(?:\s*\(\s*(\w+)\s*\))?\]").unwrap();
+}
+
 impl From<&String> for CompressedString {
     fn from(value: &String) -> Self {
         lazy_static! {
@@ -522,7 +527,6 @@ impl From<&String> for CompressedString {
             static ref DOC_COMMENT_ATTR: Regex = Regex::new(r#"#\[doc = ".*"]"#).unwrap();
             static ref LINE_COMMENT: Regex = Regex::new(r"//.*").unwrap();
             static ref MULTI_LINE_COMMENT: Regex = Regex::new(r"/\*[\s\S]*?\*/").unwrap();
-            static ref DOCIFY_ATTRIBUTES: Regex = Regex::new(r"\#\[(?:\w+::)*export(?:\s*\(\s*(\w+)\s*\))?\]").unwrap();
             // static ref STRING_LIT: Regex = Regex::new(r#"("([^"\\]|\\[\s\S])*")"#).unwrap();
         }
         let mut entities: Vec<SourceEntity> = Vec::new();
@@ -582,7 +586,7 @@ impl From<&String> for CompressedString {
 /// Finds and returns the specified [`Item`] within a source text string and returns the exact
 /// source code of that item, without any formatting changes. If span locations are stabilized,
 /// this can be removed along with most of the [`CompressedString`] machinery.
-fn source_excerpt<'a>(source: &'a String, item: &'a Item) -> Result<&'a str> {
+fn source_excerpt<'a>(source: &'a String, item: &'a Item) -> Result<String> {
     // note: can't rely on span locations because this requires nightly and it turns out the
     // spans for most items do not actually fully enclose them, sometimes just the ident, etc
     let compressed_source = CompressedString::from(source);
@@ -602,7 +606,18 @@ fn source_excerpt<'a>(source: &'a String, item: &'a Item) -> Result<&'a str> {
     let start_pos = start_c.original_pos;
     let end_c = compressed_source.chars[&(found_start + compressed_item_string.len() - 1)];
     let end_pos = end_c.original_pos;
-    Ok(&source[(start_pos)..(end_pos + 1)])
+    let final_excerpt = &source[(start_pos)..(end_pos + 1)];
+    Ok(final_excerpt
+        .lines()
+        .map(|line| {
+            if DOCIFY_ATTRIBUTES.is_match(line) && !line.trim().starts_with("//") {
+                "\n"
+            } else {
+                line
+            }
+        })
+        .collect::<Vec<&str>>()
+        .join("\n"))
 }
 
 /// Inner version of [`embed_internal`] that just returns the result as a [`String`].

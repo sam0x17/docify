@@ -49,6 +49,11 @@ pub struct TestWithNormalOrdering;
 #[doc = docify::embed!("examples/samples.rs", test_with_weird_ordering)]
 pub struct TestWithWeirdOrdering;
 
+/// This example has docify-related export keywords directly in the doc comments. They should
+/// not get stripped:
+#[doc = docify::embed!("examples/samples.rs", docify_keyword_in_comments)]
+pub struct TestWithWeirdOrderingAndKeywords;
+
 /// This will compile all markdown files in the `markdown_source` directory to `markdown_bin`
 /// when `cargo doc` is run, handling any doc embed calls as it goes
 #[cfg(doc)]

@@ -91,8 +91,17 @@ fn test_with_normal_ordering() {
 
 #[test]
 #[docify::export]
+/// This is a comment
 fn test_with_weird_ordering() {
     assert_eq!(2 + 2, 4);
+}
+
+#[test]
+#[docify::export]
+/// This is a comment plus `#[docify::export]`
+/// `#[docify::export]`
+fn docify_keyword_in_comments() {
+    assert_eq!(2 + 3, 5);
 }
 
 fn main() {}
