@@ -28,6 +28,31 @@ fn pretty_format<S: AsRef<str>>(source: S) -> String {
     prettyplease::unparse(&syn::parse_file(source.as_ref()).unwrap())
 }
 
+fn fix_indentation<S: AsRef<str>>(source: S) -> String {
+    let source = source.as_ref();
+    let Some(first) = source.chars().next() else { return source.into() };
+    if first.is_whitespace() {
+        // if there is leading whitespace, we assume this excerpt knows what it's doing and
+        // don't mess with its indentation at all
+        return source.into();
+    }
+    let mut lines = source.lines();
+    let Some(_) = lines.next() else { return source.into() };
+    let Some(second_line) = lines.next() else { return source.into() };
+    let Some(second_line_first_char) = second_line.chars().next() else { return source.into() };
+    if !second_line_first_char.is_whitespace() {
+        return source.into();
+    }
+    let mut chars: Vec<char> = Vec::new();
+    for c in second_line.chars() {
+        if !c.is_whitespace() {
+            break;
+        }
+        chars.push(c);
+    }
+    format!("{}{}", chars.iter().collect::<String>(), source)
+}
+
 /// Finds the root of the current workspace, falling back to the outer-most directory with a
 /// Cargo.toml, and then falling back to the current directory.
 fn workspace_root() -> PathBuf {
@@ -659,7 +684,7 @@ fn embed_internal_str(tokens: impl Into<TokenStream2>, lang: MarkdownLanguage) -
         let mut results: Vec<String> = Vec::new();
         for item in visitor.results {
             let excerpt = source_excerpt(&source_code, &item)?;
-            let formatted = pretty_format(excerpt);
+            let formatted = fix_indentation(excerpt);
             let example = into_example(formatted.as_str(), lang);
             results.push(example);
         }
