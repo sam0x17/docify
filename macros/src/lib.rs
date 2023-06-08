@@ -342,11 +342,7 @@ fn export_internal(
 /// generated example but otherwise functions exactly like `#[docify::embed!(..)]` in every
 /// way.
 ///
-/// Pretty formatting is provided by the [prettyplease](https://crates.io/crates/prettyplease)
-/// crate, and should match `rustfmt` output almost exactly. The reason this must be used is,
-/// except with the case of importing an entire file verbatim, we need to parse the source file
-/// with `syn`, which garbles indentation and newlines in many cases, so to fix this, we must
-/// use a formatter.
+/// Output should match `rustfmt` output exactly.
 #[proc_macro]
 pub fn embed(tokens: TokenStream) -> TokenStream {
     match embed_internal(tokens, MarkdownLanguage::Ignore) {
