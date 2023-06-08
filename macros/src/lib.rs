@@ -12,6 +12,7 @@ use std::{
     env,
     fs::{self, OpenOptions},
     io::Write,
+    iter::zip,
     path::{Path, PathBuf},
 };
 use syn::{
@@ -28,29 +29,50 @@ fn pretty_format<S: AsRef<str>>(source: S) -> String {
     prettyplease::unparse(&syn::parse_file(source.as_ref()).unwrap())
 }
 
+fn line_start_position<S: AsRef<str>>(source: S, pos: usize) -> usize {
+    let source = source.as_ref();
+    if source.len() <= pos {
+        panic!(
+            "The specified position ({}) is longer than the source string length ({}).",
+            pos,
+            source.len()
+        );
+    }
+    let mut cursor = 0;
+    for line in source.lines() {
+        cursor += line.len();
+        if cursor > pos {
+            return cursor - line.len();
+        }
+        cursor += 1; // '\n'
+    }
+    unreachable!()
+}
+
+fn fix_leading_indentation<S: AsRef<str>>(source: S) -> String {
+    let source = source.as_ref();
+    let mut shared_indent: Option<usize> = None;
+    for line in source.lines() {
+        let prefix = &line[..(line.len() - line.trim_start().len())];
+        if let Some(shared) = shared_indent {
+            shared_indent = Some(std::cmp::min(prefix.len(), shared));
+        } else {
+            shared_indent = Some(prefix.len());
+        }
+    }
+    let shared_indent = shared_indent.unwrap_or(0);
+    source
+        .lines()
+        .map(|line| line[shared_indent..].to_string())
+        .collect::<Vec<String>>()
+        .join("\n")
+}
+
 fn fix_indentation<S: AsRef<str>>(source: S) -> String {
     let source = source.as_ref();
-    let Some(first) = source.chars().next() else { return source.into() };
-    if first.is_whitespace() {
-        // if there is leading whitespace, we assume this excerpt knows what it's doing and
-        // don't mess with its indentation at all
-        return source.into();
-    }
-    let mut lines = source.lines();
-    let Some(_) = lines.next() else { return source.into() };
-    let Some(second_line) = lines.next() else { return source.into() };
-    let Some(second_line_first_char) = second_line.chars().next() else { return source.into() };
-    if !second_line_first_char.is_whitespace() {
-        return source.into();
-    }
-    let mut chars: Vec<char> = Vec::new();
-    for c in second_line.chars() {
-        if !c.is_whitespace() {
-            break;
-        }
-        chars.push(c);
-    }
-    format!("{}{}", chars.iter().collect::<String>(), source)
+    // let source = fix_first_line_indentation(source);
+    let source = fix_leading_indentation(source);
+    source
 }
 
 /// Finds the root of the current workspace, falling back to the outer-most directory with a
@@ -612,8 +634,7 @@ impl From<&String> for CompressedString {
 /// source code of that item, without any formatting changes. If span locations are stabilized,
 /// this can be removed along with most of the [`CompressedString`] machinery.
 fn source_excerpt<'a>(source: &'a String, item: &'a Item) -> Result<String> {
-    // note: can't rely on span locations because this requires nightly and it turns out the
-    // spans for most items do not actually fully enclose them, sometimes just the ident, etc
+    // note: can't rely on span locations because this requires nightly and/or is otherwise bugged
     let compressed_source = CompressedString::from(source);
     let compressed_item = CompressedString::from(&item.to_token_stream().to_string());
     let compressed_source_string = compressed_source.to_string();
@@ -629,6 +650,7 @@ fn source_excerpt<'a>(source: &'a String, item: &'a Item) -> Result<String> {
     };
     let start_c = compressed_source.chars[&found_start];
     let start_pos = start_c.original_pos;
+    let start_pos = line_start_position(source, start_pos);
     let end_c = compressed_source.chars[&(found_start + compressed_item_string.len() - 1)];
     let end_pos = end_c.original_pos;
     let final_excerpt = &source[(start_pos)..(end_pos + 1)];
@@ -739,13 +761,16 @@ fn compile_markdown_internal(tokens: impl Into<TokenStream2>) -> Result<TokenStr
         if input_path.is_dir() {
             compile_markdown_dir(input_path, format!("{}", output.display()))?;
         } else {
-            write_green(DOCIFYING);
-            println!(
-                "{} {} {}",
-                prettify_path(&input_path).display(),
-                "=>", // TODO: fancy arrow
-                prettify_path(&output).display(),
-            );
+            #[cfg(not(test))]
+            {
+                write_green(DOCIFYING);
+                println!(
+                    "{} {} {}",
+                    prettify_path(&input_path).display(),
+                    "=>", // TODO: fancy arrow
+                    prettify_path(&output).display(),
+                );
+            }
             let Ok(source) = fs::read_to_string(&input_path) else {
                 return Err(Error::new(
                     Span::call_site(),
@@ -837,13 +862,16 @@ fn compile_markdown_dir<P1: AsRef<Path>, P2: AsRef<Path>>(
     {
         let src_path = entry.path();
         let dest_path = transpose_subpath(&input_dir, &src_path, &output_dir);
-        write_green(DOCIFYING);
-        println!(
-            "{} {} {}",
-            prettify_path(&src_path).display(),
-            "=>", // TODO: fancy arrow
-            prettify_path(&dest_path).display(),
-        );
+        #[cfg(not(test))]
+        {
+            write_green(DOCIFYING);
+            println!(
+                "{} {} {}",
+                prettify_path(&src_path).display(),
+                "=>", // TODO: fancy arrow
+                prettify_path(&dest_path).display(),
+            );
+        }
         if let Some(parent) = dest_path.parent() {
             let Ok(_) = fs::create_dir_all(parent) else {
                 return Err(Error::new(
