@@ -77,4 +77,4 @@
 pub use docify_macros::*;
 
 #[cfg(all(doc, feature = "generate-readme"))]
-compile_markdown!(".README.docify.md", "README.md");
+compile_markdown!("README.docify.md", "README.md");
