@@ -1,5 +1,7 @@
 #![allow(unused)]
 
+use proc_utils::*;
+
 #[docify::export]
 struct MyCoolStruct {
     field1: u32,
@@ -102,6 +104,28 @@ fn test_with_weird_ordering() {
 /// `#[docify::export]`
 fn docify_keyword_in_comments() {
     assert_eq!(2 + 3, 5);
+}
+
+mod some_module {
+    use super::*;
+
+    #[docify::export]
+    #[rustfmt::skip]
+    #[suppress_item]
+    fn oliver_substrate_example_2() {
+        // a line comment
+        assert_events(vec![
+            UpgradeStarted { migrations: 2 },
+            /// A doc comment
+            MigrationAdvanced { index: 0, blocks: 1 },
+            MigrationCompleted { index: 0, blocks: 2 },
+            MigrationAdvanced { index: 1, blocks: 0 },
+            /// Another doc comment
+            MigrationAdvanced { index: 1, blocks: 1 },
+            MigrationCompleted { index: 1, blocks: 2 },
+            UpgradeCompleted,
+        ]);
+    }
 }
 
 fn main() {}

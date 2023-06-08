@@ -16,6 +16,9 @@ description = "Docify allows you to live-embed at compile time pieces of code fr
 [dependencies]
 docify_macros = { path = "macros", version = "0.1.14" }
 
+[dev-dependencies]
+proc-utils = "0.1.0"
+
 [features]
 default = []
 generate-readme = []

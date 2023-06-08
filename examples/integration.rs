@@ -54,6 +54,10 @@ pub struct TestWithWeirdOrdering;
 #[doc = docify::embed!("examples/samples.rs", docify_keyword_in_comments)]
 pub struct TestWithWeirdOrderingAndKeywords;
 
+/// This example pertains to <https://github.com/sam0x17/docify/issues/2>
+#[doc = docify::embed!("examples/samples.rs", oliver_substrate_example_2)]
+pub struct OliverExample2;
+
 /// This will compile all markdown files in the `markdown_source` directory to `markdown_bin`
 /// when `cargo doc` is run, handling any doc embed calls as it goes
 #[cfg(doc)]
