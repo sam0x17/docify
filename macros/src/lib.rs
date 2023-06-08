@@ -12,7 +12,6 @@ use std::{
     env,
     fs::{self, OpenOptions},
     io::Write,
-    iter::zip,
     path::{Path, PathBuf},
 };
 use syn::{
@@ -24,10 +23,6 @@ use syn::{
 };
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 use walkdir::WalkDir;
-
-fn pretty_format<S: AsRef<str>>(source: S) -> String {
-    prettyplease::unparse(&syn::parse_file(source.as_ref()).unwrap())
-}
 
 fn line_start_position<S: AsRef<str>>(source: S, pos: usize) -> usize {
     let source = source.as_ref();
@@ -761,8 +756,7 @@ fn compile_markdown_internal(tokens: impl Into<TokenStream2>) -> Result<TokenStr
         if input_path.is_dir() {
             compile_markdown_dir(input_path, format!("{}", output.display()))?;
         } else {
-            #[cfg(not(test))]
-            {
+            if cfg!(not(test)) {
                 write_green(DOCIFYING);
                 println!(
                     "{} {} {}",
@@ -862,8 +856,7 @@ fn compile_markdown_dir<P1: AsRef<Path>, P2: AsRef<Path>>(
     {
         let src_path = entry.path();
         let dest_path = transpose_subpath(&input_dir, &src_path, &output_dir);
-        #[cfg(not(test))]
-        {
+        if cfg!(not(test)) {
             write_green(DOCIFYING);
             println!(
                 "{} {} {}",
