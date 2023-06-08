@@ -938,6 +938,22 @@ fn compile_markdown_source<S: AsRef<str>>(source: S) -> Result<String> {
 /// ```txt
 /// Docifying fixtures/subfolder/file_2.md => test_bin/subfolder/file_2.md
 /// ```
+///
+/// ## Conventions
+///
+/// We encourage crate authors to feature-gate their `compile_markdown!` calls like we do for
+/// the `README.md` file in this crate:
+///
+/// ```ignore
+/// #[cfg(all(doc, feature = "generate-readme"))]
+/// compile_markdown!("README.docify.md", "README.md");
+/// ```
+///
+/// This way the `README.md` will not regenerate itself every time a user of your crate runs
+/// `cargo doc` unless they explicitly enable the `generate-readme` feature for your crate.
+///
+/// Another convention we encourage, shown above, is naming template files `foo.docify.md` so
+/// they can exist alongside the generated `foo.md` file without collisions.
 #[proc_macro]
 pub fn compile_markdown(tokens: TokenStream) -> TokenStream {
     match compile_markdown_internal(tokens) {
