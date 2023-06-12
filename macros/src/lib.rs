@@ -79,7 +79,13 @@ fn workspace_root() -> PathBuf {
         let cargo_toml = current_dir.join("Cargo.toml");
         if let Ok(cargo_toml) = fs::read_to_string(&cargo_toml) {
             best_match = current_dir.clone();
-            if cargo_toml.contains("[workspace]") {
+            if cargo_toml.contains("[workspace]")
+                || cargo_toml
+                    .chars()
+                    .filter(|&c| !c.is_whitespace())
+                    .collect::<String>()
+                    .contains("workspace={")
+            {
                 return best_match;
             }
         }
