@@ -9,7 +9,6 @@ use quote::{quote, ToTokens};
 use regex::Regex;
 use std::{
     collections::HashMap,
-    env,
     fs::{self, OpenOptions},
     io::Write,
     path::{Path, PathBuf},
