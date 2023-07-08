@@ -312,7 +312,10 @@ fn export_internal(
 ///   compile error will be issued. The `source_path` _does  not_ have to be a file that is
 ///   part of the current compilation unit, though typically it should be. The only requirement
 ///   is that it must contain valid Rust source code, and must be a descendant of the current
-///   crate's root directory.
+///   crate's root directory. While embedding files from a parent directory of the current
+///   crate may work locally, this will fail when you go to deploy to `crates.io` and/or
+///   `docs.rs`, so you should not use `../` or similar means unless you plan to never deploy
+///   to these services.
 /// - `item_ident`: (optional) can be specified after `source_path`, preceded by a comma. This
 ///   should match the export name you used to [`#[docify::export(..)]`](`macro@export`) the
 ///   item, or, if no export name was specified, this should match the inherent ident/name of
