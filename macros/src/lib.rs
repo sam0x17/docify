@@ -2,7 +2,7 @@
 
 use common_path::common_path;
 use derive_syn_parse::Parse;
-use lazy_static::lazy_static;
+use once_cell::sync::Lazy;
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::{quote, ToTokens};
@@ -563,20 +563,18 @@ impl CompressedString {
     }
 }
 
-lazy_static! {
-    static ref DOCIFY_ATTRIBUTES: Regex =
-        Regex::new(r"\#\[(?:\w+::)*export(?:\s*\(\s*(\w+)\s*\))?\]").unwrap();
-}
+static DOCIFY_ATTRIBUTES: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"\#\[(?:\w+::)*export(?:\s*\(\s*(\w+)\s*\))?\]").unwrap());
+static DOC_COMMENT: Lazy<Regex> = Lazy::new(|| Regex::new(r"///.*").unwrap());
+static DOC_COMMENT_ATTR: Lazy<Regex> = Lazy::new(|| Regex::new(r#"#\[doc = ".*"]"#).unwrap());
+static LINE_COMMENT: Lazy<Regex> = Lazy::new(|| Regex::new(r"//.*").unwrap());
+static MULTI_LINE_COMMENT: Lazy<Regex> = Lazy::new(|| Regex::new(r"/\*[\s\S]*?\*/").unwrap());
+static HTML_COMMENT: Lazy<Regex> = Lazy::new(|| Regex::new(r"<!--[\s\S]*?-->").unwrap());
+static MARKDOWN_CODEBLOCK: Lazy<Regex> = Lazy::new(|| Regex::new(r"```[\s\S]*?```").unwrap());
+// static ref STRING_LIT: Regex = Regex::new(r#"("([^"\\]|\\[\s\S])*")"#).unwrap();
 
 impl From<&String> for CompressedString {
     fn from(value: &String) -> Self {
-        lazy_static! {
-            static ref DOC_COMMENT: Regex = Regex::new(r"///.*").unwrap();
-            static ref DOC_COMMENT_ATTR: Regex = Regex::new(r#"#\[doc = ".*"]"#).unwrap();
-            static ref LINE_COMMENT: Regex = Regex::new(r"//.*").unwrap();
-            static ref MULTI_LINE_COMMENT: Regex = Regex::new(r"/\*[\s\S]*?\*/").unwrap();
-            // static ref STRING_LIT: Regex = Regex::new(r#"("([^"\\]|\\[\s\S])*")"#).unwrap();
-        }
         let mut entities: Vec<SourceEntity> = Vec::new();
         let mut claimed: Vec<bool> = value.chars().map(|_| false).collect();
         for m in DOC_COMMENT.find_iter(value) {
@@ -909,10 +907,6 @@ fn compile_markdown_source<S: AsRef<str>>(source: S) -> Result<String> {
     let source = source.as_ref();
     if source.is_empty() {
         return Ok(String::from(""));
-    }
-    lazy_static! {
-        static ref HTML_COMMENT: Regex = Regex::new(r"<!--[\s\S]*?-->").unwrap();
-        static ref MARKDOWN_CODEBLOCK: Regex = Regex::new(r"```[\s\S]*?```").unwrap();
     }
     let mut claimed: Vec<bool> = source.chars().map(|_| false).collect();
     for m in MARKDOWN_CODEBLOCK.find_iter(source) {
