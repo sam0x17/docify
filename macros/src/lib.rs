@@ -70,31 +70,36 @@ fn fix_indentation<S: AsRef<str>>(source: S) -> String {
     source
 }
 
-/// Finds the root of the current workspace, falling back to the outer-most directory with a
-/// Cargo.toml, and then falling back to the current directory.
-fn workspace_root() -> PathBuf {
-    let mut current_dir = env::current_dir().expect("failed to unwrap env::current_dir()!");
-    let mut best_match = current_dir.clone();
-    loop {
-        let cargo_toml = current_dir.join("Cargo.toml");
-        if let Ok(cargo_toml) = fs::read_to_string(&cargo_toml) {
-            best_match = current_dir.clone();
-            if cargo_toml.contains("[workspace]")
-                || cargo_toml
-                    .chars()
-                    .filter(|&c| !c.is_whitespace())
-                    .collect::<String>()
-                    .contains("workspace={")
-            {
-                return best_match;
-            }
+fn caller_crate_root() -> PathBuf {
+    let crate_name =
+        std::env::var("CARGO_PKG_NAME").expect("failed to read ENV var `CARGO_PKG_NAME`!");
+    let current_dir = std::env::current_dir().expect("failed to unwrap env::current_dir()!");
+    let search_entry = format!("name=\"{crate_name}\"");
+    for entry in WalkDir::new(&current_dir)
+        .into_iter()
+        .filter_entry(|e| !e.file_name().eq_ignore_ascii_case("target"))
+    {
+        let Ok(entry) = entry else { continue };
+        if !entry.file_type().is_file() {
+            continue;
         }
-        match current_dir.parent() {
-            Some(dir) => current_dir = dir.to_path_buf(),
-            None => break,
+        let Some(file_name) = entry.path().file_name() else { continue };
+        if !file_name.eq_ignore_ascii_case("Cargo.toml") {
+            continue;
+        }
+        let Ok(cargo_toml) = std::fs::read_to_string(&entry.path()) else {
+            continue
+        };
+        if cargo_toml
+            .chars()
+            .filter(|&c| !c.is_whitespace())
+            .collect::<String>()
+            .contains(search_entry.as_str())
+        {
+            return entry.path().parent().unwrap().to_path_buf();
         }
     }
-    best_match
+    current_dir
 }
 
 /// Prettifies a long path so that leading segments other than the workspace root are ignored
@@ -103,7 +108,7 @@ fn prettify_path<P: AsRef<Path>>(path: P) -> PathBuf {
     if path.is_relative() {
         return path.into();
     }
-    let Some(prefix) = common_path(workspace_root(), path) else {
+    let Some(prefix) = common_path(caller_crate_root(), path) else {
         return path.into();
     };
     path.components()
@@ -667,7 +672,7 @@ fn source_excerpt<'a>(source: &'a String, item: &'a Item) -> Result<String> {
 /// Inner version of [`embed_internal`] that just returns the result as a [`String`].
 fn embed_internal_str(tokens: impl Into<TokenStream2>, lang: MarkdownLanguage) -> Result<String> {
     let args = parse2::<EmbedArgs>(tokens.into())?;
-    let root = workspace_root();
+    let root = caller_crate_root();
     let file_path = root.join(args.file_path.value());
     let source_code = match fs::read_to_string(&file_path) {
         Ok(src) => src,
@@ -736,7 +741,7 @@ fn compile_markdown_internal(tokens: impl Into<TokenStream2>) -> Result<TokenStr
         return Err(Error::new(args.input.span(), "Input path cannot be blank!"));
     }
     let input_path = std::path::PathBuf::from(&args.input.value());
-    let root = workspace_root();
+    let root = caller_crate_root();
     let input_path = root.join(input_path);
     if !input_path.exists() {
         return Err(Error::new(
