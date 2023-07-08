@@ -101,7 +101,7 @@ fn caller_crate_root() -> PathBuf {
     current_dir
 }
 
-/// Prettifies a long path so that leading segments other than the workspace root are ignored
+/// Prettifies a long path so that leading segments other than the crate root are ignored
 fn prettify_path<P: AsRef<Path>>(path: P) -> PathBuf {
     let path = path.as_ref();
     if path.is_relative() {
@@ -305,13 +305,14 @@ fn export_internal(
 /// docs as well, you should use [`docify::embed_run!(..)`](`macro@embed_run`).
 ///
 /// ### Arguments
-/// - `source_path`: the file path (relative to the workspace root) that contains the item you
-///   would like to embed, represented as a string literal. If you wish to embed an entire
+/// - `source_path`: the file path (relative to the current crate root) that contains the item
+///   you would like to embed, represented as a string literal. If you wish to embed an entire
 ///   file, simply specify only a `source_path` with no other arguments and the entire file
 ///   will be embedded as a doc example. If the path cannot be read for whatever reason, a
 ///   compile error will be issued. The `source_path` _does  not_ have to be a file that is
-///   part of the current compilation unit/project/workspace, though typically it should be.
-///   The only requirement is that it must contain valid Rust source code.
+///   part of the current compilation unit, though typically it should be. The only requirement
+///   is that it must contain valid Rust source code, and must be a descendant of the current
+///   crate's root directory.
 /// - `item_ident`: (optional) can be specified after `source_path`, preceded by a comma. This
 ///   should match the export name you used to [`#[docify::export(..)]`](`macro@export`) the
 ///   item, or, if no export name was specified, this should match the inherent ident/name of

@@ -8,8 +8,8 @@
 This crate provides a simple set of rust macros, namely
 [`#[docify::export]`](https://docs.rs/docify/latest/docify/attr.export.html) and
 [`docify::embed!`](https://docs.rs/docify/latest/docify/macro.embed.html), that allow you to
-dynamically embed tests and examples from elsewhere in your workspace directly within rust docs
-comments, with the option to make these examples runnable.
+dynamically embed tests and examples from the current crate or sub-crates of the current crate
+directly within rust docs comments, with the option to make these examples runnable.
 
 The intent behind docify is to allow you to showcase your best examples and tests directly in
 your docs, without having to update them in two places every time there is a change. It also

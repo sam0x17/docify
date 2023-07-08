@@ -1,7 +1,7 @@
 //! Docify provides a simple set of rust macros, namely [`#[docify::export]`](`export`) and
 //! [`docify::embed!`](`embed`), that allow you to dynamically embed tests and examples at
-//! compile time from elsewhere in your workspace directly within rust docs comments, with the
-//! option to make these examples runnable.
+//! compile time from the current crate or sub-crates of the current crate directly within rust
+//! docs comments, with the option to make these examples runnable.
 //!
 //! The intent behind docify is to allow you to showcase your best examples and tests directly
 //! in your docs, without having to update them in two places every time there is a change. It
