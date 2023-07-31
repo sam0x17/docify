@@ -5,6 +5,17 @@
 #[allow(unused)]
 pub struct SomeItem;
 
+// /// before
+// #[docify::embed_safe("examples/samples.rs", MyCoolStruct)]
+// /// after
+// pub struct EmbedSafeTest;
+
+#[docify::docify]
+/// before
+/// @embed("examples/samples.rs", MyCoolStruct)
+/// after
+pub struct View;
+
 /// These are some docs
 /// These are some more docs
 #[doc = docify::embed!("examples/samples.rs", SomeImpl)]

@@ -14,7 +14,8 @@ use std::{
     path::{Path, PathBuf},
 };
 use syn::{
-    parse2,
+    parse::Nothing,
+    parse2, parse_macro_input,
     spanned::Spanned,
     token::Paren,
     visit::{self, Visit},
@@ -196,6 +197,30 @@ fn set_item_attributes(item: &mut Item, attrs: Vec<Attribute>) {
     }
 }
 
+fn take_item_attributes(item: &mut Item) -> Vec<Attribute> {
+    let attrs = match item {
+        Item::Const(c) => &mut c.attrs,
+        Item::Enum(e) => &mut e.attrs,
+        Item::ExternCrate(e) => &mut e.attrs,
+        Item::Fn(f) => &mut f.attrs,
+        Item::ForeignMod(f) => &mut f.attrs,
+        Item::Impl(i) => &mut i.attrs,
+        Item::Macro(m) => &mut m.attrs,
+        Item::Mod(m) => &mut m.attrs,
+        Item::Static(s) => &mut s.attrs,
+        Item::Struct(s) => &mut s.attrs,
+        Item::Trait(t) => &mut t.attrs,
+        Item::TraitAlias(t) => &mut t.attrs,
+        Item::Type(t) => &mut t.attrs,
+        Item::Union(u) => &mut u.attrs,
+        Item::Use(u) => &mut u.attrs,
+        _ => return Vec::new(),
+    };
+    let attrs_clone = attrs.clone();
+    attrs.clear();
+    attrs_clone
+}
+
 /// Marks an item for export, making it available for embedding as a rust doc example via
 /// [`docify::embed!(..)`](`macro@embed`) or [`docify::embed_run!(..)`](`macro@embed_run`).
 ///
@@ -363,6 +388,33 @@ pub fn embed(tokens: TokenStream) -> TokenStream {
         Ok(tokens) => tokens.into(),
         Err(err) => err.to_compile_error().into(),
     }
+}
+
+#[proc_macro_attribute]
+pub fn docify(attr: TokenStream, tokens: TokenStream) -> TokenStream {
+    parse_macro_input!(attr as Nothing);
+    let mut item: Item = parse_macro_input!(tokens as Item);
+    let mut attrs = take_item_attributes(&mut item);
+    quote! {
+        #(#attrs)*
+        #item
+    }
+    .into()
+}
+
+#[proc_macro_attribute]
+pub fn embed_safe(attr: TokenStream, tokens: TokenStream) -> TokenStream {
+    println!("TOKENS: {}", tokens.to_string());
+    let mut item: Item = parse_macro_input!(tokens as Item);
+    let attrs = take_item_attributes(&mut item)
+        .into_iter()
+        .map(|a| a.to_token_stream().to_string())
+        .collect::<Vec<_>>();
+    println!("attrs: {:#?}", attrs);
+    quote! {
+        #item
+    }
+    .into()
 }
 
 /// Exactly like [`docify::embed!(..)`](`macro@embed`) in every way _except_ the generated
