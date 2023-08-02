@@ -72,7 +72,9 @@ fn fix_indentation<S: AsRef<str>>(source: S) -> String {
 fn caller_crate_root() -> PathBuf {
     let crate_name =
         std::env::var("CARGO_PKG_NAME").expect("failed to read ENV var `CARGO_PKG_NAME`!");
-    let current_dir = std::env::current_dir().expect("failed to unwrap env::current_dir()!");
+    let current_dir = PathBuf::from(
+        std::env::var("CARGO_MANIFEST_DIR").expect("failed to read ENV var `CARGO_MANIFEST_DIR`!"),
+    );
     let search_entry = format!("name=\"{crate_name}\"");
     for entry in WalkDir::new(&current_dir)
         .into_iter()
