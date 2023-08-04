@@ -69,7 +69,7 @@ fn fix_indentation<S: AsRef<str>>(source: S) -> String {
     source
 }
 
-fn caller_crate_root() -> PathBuf {
+fn caller_crate_root() -> Option<PathBuf> {
     let crate_name =
         std::env::var("CARGO_PKG_NAME").expect("failed to read ENV var `CARGO_PKG_NAME`!");
     let current_dir = PathBuf::from(
@@ -97,19 +97,22 @@ fn caller_crate_root() -> PathBuf {
             .collect::<String>()
             .contains(search_entry.as_str())
         {
-            return entry.path().parent().unwrap().to_path_buf();
+            return Some(entry.path().parent().unwrap().to_path_buf());
         }
     }
-    current_dir
+    None
 }
 
 /// Prettifies a long path so that leading segments other than the crate root are ignored
+///
+/// NOTE: unwraps [`caller_crate_root`], as you would only use this if that has already
+/// evaluated to a non-`None` value.
 fn prettify_path<P: AsRef<Path>>(path: P) -> PathBuf {
     let path = path.as_ref();
     if path.is_relative() {
         return path.into();
     }
-    let Some(prefix) = common_path(caller_crate_root(), path) else {
+    let Some(prefix) = common_path(caller_crate_root().unwrap(), path) else {
         return path.into();
     };
     path.components()
@@ -675,7 +678,8 @@ fn source_excerpt<'a>(source: &'a String, item: &'a Item) -> Result<String> {
 /// Inner version of [`embed_internal`] that just returns the result as a [`String`].
 fn embed_internal_str(tokens: impl Into<TokenStream2>, lang: MarkdownLanguage) -> Result<String> {
     let args = parse2::<EmbedArgs>(tokens.into())?;
-    let root = caller_crate_root();
+    // return blank result if we can't properly resolve `caller_crate_root`
+    let Some(root) = caller_crate_root() else { return Ok(String::from("")) };
     let file_path = root.join(args.file_path.value());
     let source_code = match fs::read_to_string(&file_path) {
         Ok(src) => src,
@@ -744,7 +748,8 @@ fn compile_markdown_internal(tokens: impl Into<TokenStream2>) -> Result<TokenStr
         return Err(Error::new(args.input.span(), "Input path cannot be blank!"));
     }
     let input_path = std::path::PathBuf::from(&args.input.value());
-    let root = caller_crate_root();
+    // return blank result if we can't properly resolve `caller_crate_root`
+    let Some(root) = caller_crate_root() else { return Ok(quote!()) };
     let input_path = root.join(input_path);
     if !input_path.exists() {
         return Err(Error::new(
