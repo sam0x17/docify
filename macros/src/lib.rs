@@ -12,6 +12,7 @@ use std::{
     fs::{self, OpenOptions},
     io::Write,
     path::{Path, PathBuf},
+    str::FromStr,
 };
 use syn::{
     parse2,
@@ -21,6 +22,7 @@ use syn::{
     AttrStyle, Attribute, Error, File, Ident, Item, LitStr, Meta, Result, Token,
 };
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
+use toml::{Table, Value};
 use walkdir::WalkDir;
 
 fn line_start_position<S: AsRef<str>>(source: S, pos: usize) -> usize {
@@ -75,7 +77,6 @@ fn caller_crate_root() -> Option<PathBuf> {
     let current_dir = PathBuf::from(
         std::env::var("CARGO_MANIFEST_DIR").expect("failed to read ENV var `CARGO_MANIFEST_DIR`!"),
     );
-    let search_entry = format!("name=\"{crate_name}\"");
     for entry in WalkDir::new(&current_dir)
         .into_iter()
         .filter_entry(|e| !e.file_name().eq_ignore_ascii_case("target"))
@@ -91,12 +92,10 @@ fn caller_crate_root() -> Option<PathBuf> {
         let Ok(cargo_toml) = std::fs::read_to_string(&entry.path()) else {
             continue
         };
-        if cargo_toml
-            .chars()
-            .filter(|&c| !c.is_whitespace())
-            .collect::<String>()
-            .contains(search_entry.as_str())
-        {
+        let Ok(table) = Table::from_str(cargo_toml.as_str()) else { continue };
+        let Some(package) = table.get("package") else { continue };
+        let Some(Value::String(package_name)) = package.get("name") else { continue };
+        if package_name.eq_ignore_ascii_case(&crate_name) {
             return Some(entry.path().parent().unwrap().to_path_buf());
         }
     }
