@@ -59,7 +59,7 @@ pub struct TestWithWeirdOrderingAndKeywords;
 pub struct OliverExample2;
 
 /// This example is from Liam
-#[doc = docify::embed!("examples/samples.rs", CurrentAndPreviousValue)]
+#[doc = docify::embed!("examples/samples.rs", LiamIssue7)]
 pub struct LiamExample;
 
 /// This will compile all markdown files in the `markdown_source` directory to `markdown_bin`

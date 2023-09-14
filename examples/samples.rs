@@ -128,9 +128,9 @@ mod some_module {
     }
 }
 
+#[docify::export]
 /// Example struct holding the most recently set [`u32`] and the second
 /// most recently set [`u32`] (if one existed).
-#[docify::export]
 struct LiamIssue7;
 
 fn main() {}

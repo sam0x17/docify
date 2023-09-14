@@ -85,16 +85,24 @@ fn caller_crate_root() -> Option<PathBuf> {
         if !entry.file_type().is_file() {
             continue;
         }
-        let Some(file_name) = entry.path().file_name() else { continue };
+        let Some(file_name) = entry.path().file_name() else {
+            continue;
+        };
         if !file_name.eq_ignore_ascii_case("Cargo.toml") {
             continue;
         }
         let Ok(cargo_toml) = std::fs::read_to_string(&entry.path()) else {
-            continue
+            continue;
         };
-        let Ok(table) = Table::from_str(cargo_toml.as_str()) else { continue };
-        let Some(package) = table.get("package") else { continue };
-        let Some(Value::String(package_name)) = package.get("name") else { continue };
+        let Ok(table) = Table::from_str(cargo_toml.as_str()) else {
+            continue;
+        };
+        let Some(package) = table.get("package") else {
+            continue;
+        };
+        let Some(Value::String(package_name)) = package.get("name") else {
+            continue;
+        };
         if package_name.eq_ignore_ascii_case(&crate_name) {
             return Some(entry.path().parent().unwrap().to_path_buf());
         }
@@ -394,7 +402,9 @@ struct EmbedArgs {
 impl ToTokens for EmbedArgs {
     fn to_tokens(&self, tokens: &mut TokenStream2) {
         tokens.extend(self.file_path.to_token_stream());
-        let Some(item_ident) = &self.item_ident else { return };
+        let Some(item_ident) = &self.item_ident else {
+            return;
+        };
         tokens.extend(quote!(,));
         tokens.extend(item_ident.to_token_stream());
     }
@@ -458,12 +468,18 @@ impl<'ast> Visit<'ast> for ItemVisitor {
         let attrs = item_attributes(node);
         for attr in attrs {
             i += 1; // note, 1-based
-            let AttrStyle::Outer = attr.style else { continue };
-            let Some(last_seg) = attr.path().segments.last() else { continue };
+            let AttrStyle::Outer = attr.style else {
+                continue;
+            };
+            let Some(last_seg) = attr.path().segments.last() else {
+                continue;
+            };
             if last_seg.ident != "export" {
                 continue;
             }
-            let Some(second_to_last_seg) = attr.path().segments.iter().rev().nth(1) else { continue };
+            let Some(second_to_last_seg) = attr.path().segments.iter().rev().nth(1) else {
+                continue;
+            };
             if second_to_last_seg.ident != last_seg.ident && second_to_last_seg.ident != "docify" {
                 continue;
             }
@@ -574,7 +590,8 @@ impl CompressedString {
 static DOCIFY_ATTRIBUTES: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"\#\[(?:\w+::)*export(?:\s*\(\s*(\w+)\s*\))?\]").unwrap());
 static DOC_COMMENT: Lazy<Regex> = Lazy::new(|| Regex::new(r"///.*").unwrap());
-static DOC_COMMENT_ATTR: Lazy<Regex> = Lazy::new(|| Regex::new(r#"#\[doc = ".*"]"#).unwrap());
+static DOC_COMMENT_ATTR: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r#"#\[doc\s*=\s*".*"\s*]"#).unwrap());
 static LINE_COMMENT: Lazy<Regex> = Lazy::new(|| Regex::new(r"//.*").unwrap());
 static MULTI_LINE_COMMENT: Lazy<Regex> = Lazy::new(|| Regex::new(r"/\*[\s\S]*?\*/").unwrap());
 static HTML_COMMENT: Lazy<Regex> = Lazy::new(|| Regex::new(r"<!--[\s\S]*?-->").unwrap());
@@ -652,8 +669,8 @@ fn source_excerpt<'a>(source: &'a String, item: &'a Item) -> Result<String> {
             "You have found a bug in docify! Please submit a new GitHub issue at \
             https://github.com/sam0x17/docify/issues/new?title=%60source_excerpt\
             %60%3A%20can%27t%20find%20item%20in%20source with a sample of the item \
-            you are trying to embed."
-        ))
+            you are trying to embed.",
+        ));
     };
     let start_c = compressed_source.chars[&found_start];
     let start_pos = start_c.original_pos;
@@ -678,7 +695,9 @@ fn source_excerpt<'a>(source: &'a String, item: &'a Item) -> Result<String> {
 fn embed_internal_str(tokens: impl Into<TokenStream2>, lang: MarkdownLanguage) -> Result<String> {
     let args = parse2::<EmbedArgs>(tokens.into())?;
     // return blank result if we can't properly resolve `caller_crate_root`
-    let Some(root) = caller_crate_root() else { return Ok(String::from("")) };
+    let Some(root) = caller_crate_root() else {
+        return Ok(String::from(""));
+    };
     let file_path = root.join(args.file_path.value());
     let source_code = match fs::read_to_string(&file_path) {
         Ok(src) => src,
@@ -748,7 +767,9 @@ fn compile_markdown_internal(tokens: impl Into<TokenStream2>) -> Result<TokenStr
     }
     let input_path = std::path::PathBuf::from(&args.input.value());
     // return blank result if we can't properly resolve `caller_crate_root`
-    let Some(root) = caller_crate_root() else { return Ok(quote!()) };
+    let Some(root) = caller_crate_root() else {
+        return Ok(quote!());
+    };
     let input_path = root.join(input_path);
     if !input_path.exists() {
         return Err(Error::new(
@@ -782,14 +803,14 @@ fn compile_markdown_internal(tokens: impl Into<TokenStream2>) -> Result<TokenStr
             let Ok(source) = fs::read_to_string(&input_path) else {
                 return Err(Error::new(
                     Span::call_site(),
-                    format!("Failed to read markdown file at '{}'", input_path.display())
+                    format!("Failed to read markdown file at '{}'", input_path.display()),
                 ));
             };
             let compiled = compile_markdown_source(source.as_str())?;
             let Ok(_) = overwrite_file(&output, &compiled) else {
                 return Err(Error::new(
                     Span::call_site(),
-                    format!("Failed to write to '{}'", output.display())
+                    format!("Failed to write to '{}'", output.display()),
                 ));
             };
         }
@@ -804,7 +825,7 @@ fn compile_markdown_internal(tokens: impl Into<TokenStream2>) -> Result<TokenStr
         let Ok(source) = fs::read_to_string(&input_path) else {
             return Err(Error::new(
                 Span::call_site(),
-                format!("Failed to read markdown file at '{}'", input_path.display())
+                format!("Failed to read markdown file at '{}'", input_path.display()),
             ));
         };
         let compiled = compile_markdown_source(source.as_str())?;
@@ -861,7 +882,9 @@ fn compile_markdown_dir<P1: AsRef<Path>, P2: AsRef<Path>>(
             if !e.file_type().is_file() && !e.file_type().is_symlink() {
                 return false;
             }
-            let Some(ext) = e.path().extension() else { return false };
+            let Some(ext) = e.path().extension() else {
+                return false;
+            };
             if ext.eq_ignore_ascii_case("md") {
                 return true;
             }
@@ -883,14 +906,14 @@ fn compile_markdown_dir<P1: AsRef<Path>, P2: AsRef<Path>>(
             let Ok(_) = fs::create_dir_all(parent) else {
                 return Err(Error::new(
                     Span::call_site(),
-                    format!("Failed to create output directory '{}'", parent.display())
+                    format!("Failed to create output directory '{}'", parent.display()),
                 ));
             };
         }
         let Ok(source) = fs::read_to_string(src_path) else {
             return Err(Error::new(
                 Span::call_site(),
-                format!("Failed to read markdown file at '{}'", src_path.display())
+                format!("Failed to read markdown file at '{}'", src_path.display()),
             ));
         };
         let compiled = compile_markdown_source(source.as_str())?;
@@ -898,14 +921,14 @@ fn compile_markdown_dir<P1: AsRef<Path>, P2: AsRef<Path>>(
             let Ok(_) = fs::create_dir_all(parent) else {
                 return Err(Error::new(
                     Span::call_site(),
-                    format!("Failed to create directory '{}'", parent.display())
+                    format!("Failed to create directory '{}'", parent.display()),
                 ));
             };
         }
         let Ok(_) = overwrite_file(&dest_path, &compiled) else {
             return Err(Error::new(
                 Span::call_site(),
-                format!("Failed to write to '{}'", dest_path.display())
+                format!("Failed to write to '{}'", dest_path.display()),
             ));
         };
     }
