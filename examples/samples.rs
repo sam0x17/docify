@@ -1,5 +1,5 @@
 //! ```text
-//! ├ special characters here
+//! ├├├├├├├├├├├├├├├├├├├├├├├├├├├├├├├├├├├├├├├├├├├
 //! ```
 
 #![allow(unused)]

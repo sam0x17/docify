@@ -8,6 +8,7 @@ use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::{quote, ToTokens};
 use regex::Regex;
 use std::{
+    cmp::min,
     collections::HashMap,
     fs::{self, OpenOptions},
     io::Write,
@@ -554,7 +555,7 @@ impl SourceEntity {
     /// Marks the character positions corresponding with this entity as belonging to this
     /// entity in the enclosing [`CompressedString`].
     pub fn claim(&self, claimed: &mut Vec<bool>) {
-        for i in self.start..(self.end + 1) {
+        for i in self.start..min(self.end, claimed.len()) {
             claimed[i] = true;
         }
     }
@@ -601,7 +602,7 @@ static MARKDOWN_CODEBLOCK: Lazy<Regex> = Lazy::new(|| Regex::new(r"```[\s\S]*?``
 impl From<&String> for CompressedString {
     fn from(value: &String) -> Self {
         let mut entities: Vec<SourceEntity> = Vec::new();
-        let mut claimed: Vec<bool> = value.chars().map(|_| false).collect();
+        let mut claimed: Vec<bool> = vec![false; value.len()];
         for m in DOC_COMMENT.find_iter(value) {
             let entity = SourceEntity::new(m.start(), m.end());
             entity.claim(&mut claimed);
@@ -639,17 +640,23 @@ impl From<&String> for CompressedString {
             chars_arr: Vec::new(),
             chars: HashMap::new(),
         };
-        let chars: Vec<char> = value.chars().collect();
         let mut cursor = 0;
-        for (i, c) in chars.iter().enumerate() {
-            if claimed[i] || c.is_whitespace() {
+        let mut byte_index = 0;
+        while byte_index < value.len() {
+            let current_char = &value[byte_index..].chars().next().unwrap(); // get the current character
+            let char_len = current_char.len_utf8(); // get its length in bytes
+
+            if claimed[byte_index] || current_char.is_whitespace() {
+                byte_index += char_len;
                 continue;
             }
-            let oc = OffsetChar::new(*c, i);
+            let oc = OffsetChar::new(*current_char, byte_index);
             compressed.chars.insert(cursor, oc);
             compressed.chars_arr.push(oc);
             cursor += 1;
+            byte_index += char_len;
         }
+
         compressed
     }
 }
@@ -677,7 +684,7 @@ fn source_excerpt<'a>(source: &'a String, item: &'a Item) -> Result<String> {
     let start_pos = line_start_position(source, start_pos);
     let end_c = compressed_source.chars[&(found_start + compressed_item_string.len() - 1)];
     let end_pos = end_c.original_pos;
-    let final_excerpt = &source[(start_pos)..(end_pos + 1)];
+    let final_excerpt = &source[start_pos..min(end_pos + 1, source.len())];
     Ok(final_excerpt
         .lines()
         .map(|line| {
