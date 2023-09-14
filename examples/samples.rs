@@ -1,3 +1,7 @@
+//! ```text
+//! ├ special characters here
+//! ```
+
 #![allow(unused)]
 
 use proc_utils::*;
