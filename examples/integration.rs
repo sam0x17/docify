@@ -62,6 +62,10 @@ pub struct OliverExample2;
 #[doc = docify::embed!("examples/samples.rs", LiamIssue7)]
 pub struct LiamExample;
 
+/// This is Liam's issue #9
+#[doc = docify::embed!("examples/samples.rs", trait_impl_method)]
+pub struct LiamExample9;
+
 /// This will compile all markdown files in the `markdown_source` directory to `markdown_bin`
 /// when `cargo doc` is run, handling any doc embed calls as it goes
 #[cfg(doc)]
