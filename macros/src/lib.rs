@@ -20,7 +20,8 @@ use syn::{
     spanned::Spanned,
     token::Paren,
     visit::{self, Visit},
-    AttrStyle, Attribute, Error, File, Ident, Item, LitStr, Meta, Result, Token,
+    AttrStyle, Attribute, Error, File, Ident, ImplItem, Item, LitStr, Meta, Result, Token,
+    TraitItem,
 };
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 use toml::{Table, Value};
@@ -141,26 +142,59 @@ fn write_green<S: AsRef<str>>(st: S) {
     let _ = stdout.set_color(ColorSpec::new().set_fg(None).set_bold(false));
 }
 
-/// Gets a copy of the inherent name ident of an [`Item`], if applicable.
-fn name_ident(item: &Item) -> Option<Ident> {
-    match item {
-        Item::Const(item_const) => Some(item_const.ident.clone()),
-        Item::Enum(item_enum) => Some(item_enum.ident.clone()),
-        Item::ExternCrate(item_extern_crate) => Some(item_extern_crate.ident.clone()),
-        Item::Fn(item_fn) => Some(item_fn.sig.ident.clone()),
-        Item::Macro(item_macro) => item_macro.ident.clone(), // note this one might not have an Ident as well
-        Item::Mod(item_mod) => Some(item_mod.ident.clone()),
-        Item::Static(item_static) => Some(item_static.ident.clone()),
-        Item::Struct(item_struct) => Some(item_struct.ident.clone()),
-        Item::Trait(item_trait) => Some(item_trait.ident.clone()),
-        Item::TraitAlias(item_trait_alias) => Some(item_trait_alias.ident.clone()),
-        Item::Type(item_type) => Some(item_type.ident.clone()),
-        Item::Union(item_union) => Some(item_union.ident.clone()),
-        // Item::ForeignMod(item_foreign_mod) => None,
-        // Item::Use(item_use) => None,
-        // Item::Impl(item_impl) => None,
-        // Item::Verbatim(_) => None,
-        _ => None,
+/// An item that may or may not have an inherent "name" ident.
+trait NamedItem {
+    /// Gets a copy of the inherent name ident of this item, if applicable.
+    fn name_ident(&self) -> Option<Ident>;
+}
+
+impl NamedItem for Item {
+    fn name_ident(&self) -> Option<Ident> {
+        match self {
+            Item::Const(item_const) => Some(item_const.ident.clone()),
+            Item::Enum(item_enum) => Some(item_enum.ident.clone()),
+            Item::ExternCrate(item_extern_crate) => Some(item_extern_crate.ident.clone()),
+            Item::Fn(item_fn) => Some(item_fn.sig.ident.clone()),
+            Item::Macro(item_macro) => item_macro.ident.clone(), // note this one might not have an Ident as well
+            Item::Mod(item_mod) => Some(item_mod.ident.clone()),
+            Item::Static(item_static) => Some(item_static.ident.clone()),
+            Item::Struct(item_struct) => Some(item_struct.ident.clone()),
+            Item::Trait(item_trait) => Some(item_trait.ident.clone()),
+            Item::TraitAlias(item_trait_alias) => Some(item_trait_alias.ident.clone()),
+            Item::Type(item_type) => Some(item_type.ident.clone()),
+            Item::Union(item_union) => Some(item_union.ident.clone()),
+            // Item::ForeignMod(item_foreign_mod) => None,
+            // Item::Use(item_use) => None,
+            // Item::Impl(item_impl) => None,
+            // Item::Verbatim(_) => None,
+            _ => None,
+        }
+    }
+}
+
+impl NamedItem for ImplItem {
+    fn name_ident(&self) -> Option<Ident> {
+        match self {
+            ImplItem::Const(impl_item_const) => Some(impl_item_const.ident.clone()),
+            ImplItem::Fn(impl_item_fn) => Some(impl_item_fn.sig.ident.clone()),
+            ImplItem::Type(impl_item_type) => Some(impl_item_type.ident.clone()),
+            // ImplItem::Macro(impl_item_macro) => None,
+            // ImplItem::Verbatim(impl_item_verbatim) => None,
+            _ => None,
+        }
+    }
+}
+
+impl NamedItem for TraitItem {
+    fn name_ident(&self) -> Option<Ident> {
+        match self {
+            TraitItem::Const(trait_item_const) => Some(trait_item_const.ident.clone()),
+            TraitItem::Fn(trait_item_fn) => Some(trait_item_fn.sig.ident.clone()),
+            TraitItem::Type(trait_item_type) => Some(trait_item_type.ident.clone()),
+            // TraitItem::Macro(trait_item_macro) => None,
+            // TraitItem::Verbatim(trait_item_verbatim) => None,
+            _ => None,
+        }
     }
 }
 
@@ -285,7 +319,7 @@ fn export_internal(
     // get export ident
     let _export_ident = match attr.ident {
         Some(ident) => ident,
-        None => match name_ident(&item) {
+        None => match item.name_ident() {
             Some(ident) => ident,
             None => {
                 return Err(Error::new(
@@ -497,7 +531,7 @@ impl<'ast> Visit<'ast> for ItemVisitor {
             };
             let item_ident = match item_ident {
                 Some(ident) => ident,
-                None => match name_ident(node) {
+                None => match node.name_ident() {
                     Some(ident) => ident,
                     None => continue,
                 },
