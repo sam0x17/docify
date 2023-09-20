@@ -254,6 +254,56 @@ impl AttributedItem for Item {
     }
 }
 
+impl AttributedItem for ImplItem {
+    fn item_attributes(&self) -> &Vec<Attribute> {
+        const EMPTY: &Vec<Attribute> = &Vec::new();
+        match self {
+            ImplItem::Const(impl_item_const) => &impl_item_const.attrs,
+            ImplItem::Fn(impl_item_fn) => &impl_item_fn.attrs,
+            ImplItem::Type(impl_item_type) => &impl_item_type.attrs,
+            ImplItem::Macro(impl_item_macro) => &impl_item_macro.attrs,
+            // ImplItem::Verbatim(impl_item_verbatim) => &EMPTY,
+            _ => &EMPTY,
+        }
+    }
+
+    fn set_item_attributes(&mut self, attrs: Vec<Attribute>) {
+        match self {
+            ImplItem::Const(impl_item_const) => impl_item_const.attrs = attrs,
+            ImplItem::Fn(impl_item_fn) => impl_item_fn.attrs = attrs,
+            ImplItem::Type(impl_item_type) => impl_item_type.attrs = attrs,
+            ImplItem::Macro(impl_item_macro) => impl_item_macro.attrs = attrs,
+            // ImplItem::Verbatim(impl_item_verbatim) => unimplemented!(),
+            _ => unimplemented!(),
+        }
+    }
+}
+
+impl AttributedItem for TraitItem {
+    fn item_attributes(&self) -> &Vec<Attribute> {
+        const EMPTY: &Vec<Attribute> = &Vec::new();
+        match self {
+            TraitItem::Const(trait_item_const) => &trait_item_const.attrs,
+            TraitItem::Fn(trait_item_fn) => &trait_item_fn.attrs,
+            TraitItem::Type(trait_item_type) => &trait_item_type.attrs,
+            TraitItem::Macro(trait_item_macro) => &trait_item_macro.attrs,
+            // TraitItem::Verbatim(trait_item_verbatim) => &EMPTY,
+            _ => &EMPTY,
+        }
+    }
+
+    fn set_item_attributes(&mut self, attrs: Vec<Attribute>) {
+        match self {
+            TraitItem::Const(trait_item_const) => trait_item_const.attrs = attrs,
+            TraitItem::Fn(trait_item_fn) => trait_item_fn.attrs = attrs,
+            TraitItem::Type(trait_item_type) => trait_item_type.attrs = attrs,
+            TraitItem::Macro(trait_item_macros) => trait_item_macros.attrs = attrs,
+            // TraitItem::Verbatim(trait_item_verbatim) => unimplemented!(),
+            _ => unimplemented!(),
+        }
+    }
+}
+
 /// Marks an item for export, making it available for embedding as a rust doc example via
 /// [`docify::embed!(..)`](`macro@embed`) or [`docify::embed_run!(..)`](`macro@embed_run`).
 ///
