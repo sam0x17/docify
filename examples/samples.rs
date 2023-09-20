@@ -151,22 +151,3 @@ impl SomeTrait for Liam9 {
         println!("foo!");
     }
 }
-
-// #[cfg(feature = "fake")]
-// #[pallet::call]
-// impl<T: Config> Pallet<T> {
-//     #[pallet::call_index(0)]
-//     #[docify::export(set_value)]
-//     pub fn set_value(origin: OriginFor<T>, value: u32) -> DispatchResult {
-//         ensure_signed(origin)?;
-
-//         let previous = Value::<T>::get().map(|v| v.current);
-//         let new_struct = CurrentAndPreviousValue {
-//             current: value,
-//             previous,
-//         };
-//         <Value<T>>::put(new_struct);
-
-//         Ok(())
-//     }
-// }

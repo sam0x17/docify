@@ -552,14 +552,19 @@ fn into_example(st: &str, lang: MarkdownLanguage) -> String {
     lines.join("\n")
 }
 
-/// Visitor pattern for finding items
-struct ItemVisitor {
-    search: Ident,
-    results: Vec<Item>,
+/// Generalizes over items that we support exporting via Docify, used by [`ItemVisitor`].
+trait SupportedVisitItem<'ast> {
+    fn visit_supported_item<T: NamedItem + AttributedItem + ToTokens + Clone>(
+        &mut self,
+        node: &'ast T,
+    );
 }
 
-impl<'ast> Visit<'ast> for ItemVisitor {
-    fn visit_item(&mut self, node: &'ast Item) {
+impl<'ast> SupportedVisitItem<'ast> for ItemVisitor {
+    fn visit_supported_item<T: NamedItem + AttributedItem + ToTokens + Clone>(
+        &mut self,
+        node: &'ast T,
+    ) {
         let mut i = 0;
         let attrs = node.item_attributes();
         for attr in attrs {
@@ -612,11 +617,33 @@ impl<'ast> Visit<'ast> for ItemVisitor {
                     .collect();
                 item.set_item_attributes(attrs_without_this_one);
                 // add the item to results
-                self.results.push(item);
+                self.results.push(item.to_token_stream());
                 // no need to explore the attributes of this item further, it is already in results
                 break;
             }
         }
+    }
+}
+
+/// Visitor pattern for finding items
+struct ItemVisitor {
+    search: Ident,
+    results: Vec<TokenStream2>,
+}
+
+impl<'ast> Visit<'ast> for ItemVisitor {
+    fn visit_trait_item(&mut self, node: &'ast TraitItem) {
+        self.visit_supported_item(node);
+        visit::visit_trait_item(self, node);
+    }
+
+    fn visit_impl_item(&mut self, node: &'ast ImplItem) {
+        self.visit_supported_item(node);
+        visit::visit_impl_item(self, node);
+    }
+
+    fn visit_item(&mut self, node: &'ast Item) {
+        self.visit_supported_item(node);
         visit::visit_item(self, node);
     }
 }
@@ -759,7 +786,7 @@ impl From<&String> for CompressedString {
 /// Finds and returns the specified [`Item`] within a source text string and returns the exact
 /// source code of that item, without any formatting changes. If span locations are stabilized,
 /// this can be removed along with most of the [`CompressedString`] machinery.
-fn source_excerpt<'a>(source: &'a String, item: &'a Item) -> Result<String> {
+fn source_excerpt<'a, T: ToTokens>(source: &'a String, item: &'a T) -> Result<String> {
     // note: can't rely on span locations because this requires nightly and/or is otherwise bugged
     let compressed_source = CompressedString::from(source);
     let compressed_item = CompressedString::from(&item.to_token_stream().to_string());
