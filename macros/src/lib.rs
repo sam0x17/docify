@@ -198,48 +198,59 @@ impl NamedItem for TraitItem {
     }
 }
 
-/// Gets a copy of any attributes associated with this [`Item`], if applicable.
-fn item_attributes(item: &Item) -> &Vec<Attribute> {
-    const EMPTY: &Vec<Attribute> = &Vec::new();
-    match item {
-        Item::Const(c) => &c.attrs,
-        Item::Enum(e) => &e.attrs,
-        Item::ExternCrate(e) => &e.attrs,
-        Item::Fn(f) => &f.attrs,
-        Item::ForeignMod(f) => &f.attrs,
-        Item::Impl(i) => &i.attrs,
-        Item::Macro(m) => &m.attrs,
-        Item::Mod(m) => &m.attrs,
-        Item::Static(s) => &s.attrs,
-        Item::Struct(s) => &s.attrs,
-        Item::Trait(t) => &t.attrs,
-        Item::TraitAlias(t) => &t.attrs,
-        Item::Type(t) => &t.attrs,
-        Item::Union(u) => &u.attrs,
-        Item::Use(u) => &u.attrs,
-        _ => EMPTY,
-    }
+/// Generalizes over items that have some underlying set of [`Attribute`] associated with them.
+trait AttributedItem {
+    /// Gets a reference to the underlying [`Vec`] of [`Attribute`]s for this item, if
+    /// applicable. If not applicable, an empty [`Vec`] will be returned.
+    fn item_attributes(&self) -> &Vec<Attribute>;
+
+    /// Sets the underlying [`Vec`] of [`Attribute`]s for this item, if applicable. Panics if
+    /// you attempt to use this on an inapplicable item!
+    fn set_item_attributes(&mut self, attrs: Vec<Attribute>);
 }
 
-/// Sets attributes on any [`Item`], if applicable (panics for unsupported!)
-fn set_item_attributes(item: &mut Item, attrs: Vec<Attribute>) {
-    match item {
-        Item::Const(c) => c.attrs = attrs,
-        Item::Enum(e) => e.attrs = attrs,
-        Item::ExternCrate(e) => e.attrs = attrs,
-        Item::Fn(f) => f.attrs = attrs,
-        Item::ForeignMod(f) => f.attrs = attrs,
-        Item::Impl(i) => i.attrs = attrs,
-        Item::Macro(m) => m.attrs = attrs,
-        Item::Mod(m) => m.attrs = attrs,
-        Item::Static(s) => s.attrs = attrs,
-        Item::Struct(s) => s.attrs = attrs,
-        Item::Trait(t) => t.attrs = attrs,
-        Item::TraitAlias(t) => t.attrs = attrs,
-        Item::Type(t) => t.attrs = attrs,
-        Item::Union(u) => u.attrs = attrs,
-        Item::Use(u) => u.attrs = attrs,
-        _ => unimplemented!(),
+impl AttributedItem for Item {
+    fn item_attributes(&self) -> &Vec<Attribute> {
+        const EMPTY: &Vec<Attribute> = &Vec::new();
+        match self {
+            Item::Const(c) => &c.attrs,
+            Item::Enum(e) => &e.attrs,
+            Item::ExternCrate(e) => &e.attrs,
+            Item::Fn(f) => &f.attrs,
+            Item::ForeignMod(f) => &f.attrs,
+            Item::Impl(i) => &i.attrs,
+            Item::Macro(m) => &m.attrs,
+            Item::Mod(m) => &m.attrs,
+            Item::Static(s) => &s.attrs,
+            Item::Struct(s) => &s.attrs,
+            Item::Trait(t) => &t.attrs,
+            Item::TraitAlias(t) => &t.attrs,
+            Item::Type(t) => &t.attrs,
+            Item::Union(u) => &u.attrs,
+            Item::Use(u) => &u.attrs,
+            _ => EMPTY,
+        }
+    }
+
+    fn set_item_attributes(&mut self, attrs: Vec<Attribute>) {
+        match self {
+            Item::Const(c) => c.attrs = attrs,
+            Item::Enum(e) => e.attrs = attrs,
+            Item::ExternCrate(e) => e.attrs = attrs,
+            Item::Fn(f) => f.attrs = attrs,
+            Item::ForeignMod(f) => f.attrs = attrs,
+            Item::Impl(i) => i.attrs = attrs,
+            Item::Macro(m) => m.attrs = attrs,
+            Item::Mod(m) => m.attrs = attrs,
+            Item::Static(s) => s.attrs = attrs,
+            Item::Struct(s) => s.attrs = attrs,
+            Item::Trait(t) => t.attrs = attrs,
+            Item::TraitAlias(t) => t.attrs = attrs,
+            Item::Type(t) => t.attrs = attrs,
+            Item::Union(u) => u.attrs = attrs,
+            Item::Use(u) => u.attrs = attrs,
+            _ => unimplemented!(),
+        }
     }
 }
 
@@ -500,7 +511,7 @@ struct ItemVisitor {
 impl<'ast> Visit<'ast> for ItemVisitor {
     fn visit_item(&mut self, node: &'ast Item) {
         let mut i = 0;
-        let attrs = item_attributes(node);
+        let attrs = node.item_attributes();
         for attr in attrs {
             i += 1; // note, 1-based
             let AttrStyle::Outer = attr.style else {
@@ -549,7 +560,7 @@ impl<'ast> Visit<'ast> for ItemVisitor {
                     .map(|(_, v)| v)
                     .cloned()
                     .collect();
-                set_item_attributes(&mut item, attrs_without_this_one);
+                item.set_item_attributes(attrs_without_this_one);
                 // add the item to results
                 self.results.push(item);
                 // no need to explore the attributes of this item further, it is already in results
