@@ -20,12 +20,14 @@ use syn::{
     spanned::Spanned,
     token::Paren,
     visit::{self, Visit},
-    AttrStyle, Attribute, Error, File, Ident, ImplItem, Item, LitStr, Meta, Result, Token,
+    AttrStyle, Attribute, Error, Expr, File, Ident, ImplItem, Item, LitStr, Meta, Result, Token,
     TraitItem,
 };
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 use toml::{Table, Value};
 use walkdir::WalkDir;
+
+mod hidden;
 
 fn line_start_position<S: AsRef<str>>(source: S, pos: usize) -> usize {
     let source = source.as_ref();
@@ -199,7 +201,7 @@ impl NamedItem for TraitItem {
 }
 
 /// Generalizes over items that have some underlying set of [`Attribute`] associated with them.
-trait AttributedItem {
+trait AttributedThing {
     /// Gets a reference to the underlying [`Vec`] of [`Attribute`]s for this item, if
     /// applicable. If not applicable, an empty [`Vec`] will be returned.
     fn item_attributes(&self) -> &Vec<Attribute>;
@@ -209,7 +211,60 @@ trait AttributedItem {
     fn set_item_attributes(&mut self, attrs: Vec<Attribute>);
 }
 
-impl AttributedItem for Item {
+impl AttributedThing for Expr {
+    fn item_attributes(&self) -> &Vec<Attribute> {
+        const EMPTY: &Vec<Attribute> = &Vec::new();
+        match self {
+            Expr::Array(x) => &x.attrs,
+            Expr::Assign(x) => &x.attrs,
+            Expr::Async(x) => &x.attrs,
+            Expr::Await(x) => &x.attrs,
+            Expr::Binary(x) => &x.attrs,
+            Expr::Block(x) => &x.attrs,
+            Expr::Break(x) => &x.attrs,
+            Expr::Call(x) => &x.attrs,
+            Expr::Cast(x) => &x.attrs,
+            Expr::Closure(x) => &x.attrs,
+            Expr::Const(x) => &x.attrs,
+            Expr::Continue(x) => &x.attrs,
+            Expr::Field(x) => &x.attrs,
+            Expr::ForLoop(x) => &x.attrs,
+            Expr::Group(x) => &x.attrs,
+            Expr::If(x) => &x.attrs,
+            Expr::Index(x) => &x.attrs,
+            Expr::Infer(x) => &x.attrs,
+            Expr::Let(x) => &x.attrs,
+            Expr::Lit(x) => &x.attrs,
+            Expr::Loop(x) => &x.attrs,
+            Expr::Macro(x) => &x.attrs,
+            Expr::Match(x) => &x.attrs,
+            Expr::MethodCall(x) => &x.attrs,
+            Expr::Paren(x) => &x.attrs,
+            Expr::Path(x) => &x.attrs,
+            Expr::Range(x) => &x.attrs,
+            Expr::Reference(x) => &x.attrs,
+            Expr::Repeat(x) => &x.attrs,
+            Expr::Return(x) => &x.attrs,
+            Expr::Struct(x) => &x.attrs,
+            Expr::Try(x) => &x.attrs,
+            Expr::TryBlock(x) => &x.attrs,
+            Expr::Tuple(x) => &x.attrs,
+            Expr::Unary(x) => &x.attrs,
+            Expr::Unsafe(x) => &x.attrs,
+            Expr::While(x) => &x.attrs,
+            Expr::Yield(x) => &x.attrs,
+            _ => EMPTY,
+        }
+    }
+
+    fn set_item_attributes(&mut self, _attrs: Vec<Attribute>) {
+        match self {
+            _ => unreachable!(),
+        }
+    }
+}
+
+impl AttributedThing for Item {
     fn item_attributes(&self) -> &Vec<Attribute> {
         const EMPTY: &Vec<Attribute> = &Vec::new();
         match self {
@@ -254,7 +309,7 @@ impl AttributedItem for Item {
     }
 }
 
-impl AttributedItem for ImplItem {
+impl AttributedThing for ImplItem {
     fn item_attributes(&self) -> &Vec<Attribute> {
         const EMPTY: &Vec<Attribute> = &Vec::new();
         match self {
@@ -279,7 +334,7 @@ impl AttributedItem for ImplItem {
     }
 }
 
-impl AttributedItem for TraitItem {
+impl AttributedThing for TraitItem {
     fn item_attributes(&self) -> &Vec<Attribute> {
         const EMPTY: &Vec<Attribute> = &Vec::new();
         match self {
@@ -348,7 +403,7 @@ impl AttributedItem for TraitItem {
 /// [`docify::embed!(..)`](`macro@embed`), duplicate results are simply embedded one after
 /// another, and this is by design.
 ///
-/// If there are multiple items with the same inherent name in varipous scopes in the same
+/// If there are multiple items with the same inherent name in various scopes in the same
 /// file, and you want to export just one of them as a doc example, you should specify a unique
 /// ident as the export name for this item.
 ///
@@ -554,14 +609,14 @@ fn into_example(st: &str, lang: MarkdownLanguage) -> String {
 
 /// Generalizes over items that we support exporting via Docify, used by [`ItemVisitor`].
 trait SupportedVisitItem<'ast> {
-    fn visit_supported_item<T: NamedItem + AttributedItem + ToTokens + Clone>(
+    fn visit_supported_item<T: NamedItem + AttributedThing + ToTokens + Clone>(
         &mut self,
         node: &'ast T,
     );
 }
 
 impl<'ast> SupportedVisitItem<'ast> for ItemVisitor {
-    fn visit_supported_item<T: NamedItem + AttributedItem + ToTokens + Clone>(
+    fn visit_supported_item<T: NamedItem + AttributedThing + ToTokens + Clone>(
         &mut self,
         node: &'ast T,
     ) {
@@ -841,7 +896,10 @@ fn embed_internal_str(tokens: impl Into<TokenStream2>, lang: MarkdownLanguage) -
         }
     };
     let parsed = source_code.parse::<TokenStream2>()?;
-    let source_file = parse2::<File>(parsed)?;
+    let mut source_file = parse2::<File>(parsed)?;
+
+    hidden::remove_hidden_attribute(&mut source_file);
+    let source_code = prettyplease::unparse(&source_file);
 
     let output = if let Some(ident) = args.item_ident {
         let mut visitor = ItemVisitor {

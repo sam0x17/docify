@@ -60,7 +60,7 @@ pub struct OliverExample2;
 
 /// This example is from Liam
 #[doc = docify::embed!("examples/samples.rs", LiamIssue7)]
-pub struct LiamExample;
+pub struct LiamExample7;
 
 /// This is Liam's issue #9
 #[doc = docify::embed!("examples/samples.rs", trait_impl_method)]
