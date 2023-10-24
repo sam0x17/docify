@@ -378,20 +378,14 @@ fn export_internal(
     let item = parse2::<Item>(tokens.into())?;
 
     // get export ident
-    let _export_ident = match attr.ident {
-        Some(ident) => ident,
-        None => match item.name_ident() {
-            Some(ident) => ident,
-            None => {
-                return Err(Error::new(
-                    item.span(),
-                    "Cannot automatically detect ident from this item. \
-				    You will need to specify a name manually as the argument \
-				    for the #[export] attribute, i.e. #[export(my_name)].",
-                ))
-            }
-        },
-    };
+    let _export_ident = attr.ident.or_else(|| item.name_ident()).ok_or_else(|| {
+        Error::new(
+            item.span(),
+            "Cannot automatically detect ident from this item. \
+            You will need to specify a name manually as the argument \
+            for the #[export] attribute, i.e. #[export(my_name)].",
+        )
+    })?;
 
     Ok(quote!(#item))
 }
