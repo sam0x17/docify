@@ -363,6 +363,49 @@ pub fn export(attr: TokenStream, tokens: TokenStream) -> TokenStream {
     }
 }
 
+/// Like [`#[docify::export]`](`macro@export`) but only exports the inner contents of whatever
+/// item the attribute is attached to.
+///
+/// For example, given the following:
+/// ```ignore
+/// #[docify::export_content]
+/// mod my_mod {
+///     pub fn some_fun() {
+///         println!("hello world!");
+///     }
+/// }
+/// ```
+///
+/// Would export only:
+/// ```ignore
+/// pub fn some_fun() {
+///     println!("hello world");
+/// }
+/// ```
+///
+/// Note that if [`#[docify::export_content]`](`macro@export_content`) is used on an item that
+/// has no notion of inner contents, such as a type, static, or const declaration, it will
+/// simply function like a regular [`#[docify::export]`](`macro@export`) attribute.
+///
+/// Supported items include:
+/// - functions
+/// - modules
+/// - trait declarations
+/// - trait impls
+/// - basic blocks (when inside an outer macro pattern)
+///
+/// All other items will behave like they normally do with
+/// [`#[docify::export]`](`macro@export`). Notably this includes structs and enums, because
+/// while these items have a defined notion of "contents", those contents cannot stand on their
+/// own as valid rust code.
+#[proc_macro_attribute]
+pub fn export_content(attr: TokenStream, tokens: TokenStream) -> TokenStream {
+    match export_internal(attr, tokens) {
+        Ok(tokens) => tokens.into(),
+        Err(err) => err.to_compile_error().into(),
+    }
+}
+
 /// Used to parse args for `#[export(..)]`
 #[derive(Parse)]
 struct ExportAttr {
