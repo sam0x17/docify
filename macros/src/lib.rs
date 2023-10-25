@@ -612,7 +612,8 @@ impl<'ast> SupportedVisitItem<'ast> for ItemVisitor {
             let Some(last_seg) = attr.path().segments.last() else {
                 continue;
             };
-            if last_seg.ident != "export" {
+            let is_export_content = last_seg.ident == "export_content";
+            if last_seg.ident != "export" && !is_export_content {
                 continue;
             }
             let Some(second_to_last_seg) = attr.path().segments.iter().rev().nth(1) else {
@@ -623,6 +624,7 @@ impl<'ast> SupportedVisitItem<'ast> for ItemVisitor {
             }
             // we have found a #[something::docify::export] or #[docify::export] or
             // #[export]-style attribute
+            // (OR any of the above but export_content)
 
             // resolve item_ident
             let item_ident = match &attr.meta {
@@ -654,7 +656,13 @@ impl<'ast> SupportedVisitItem<'ast> for ItemVisitor {
                     .collect();
                 item.set_item_attributes(attrs_without_this_one);
                 // add the item to results
-                self.results.push(item.to_token_stream());
+                self.results.push((
+                    item.to_token_stream(),
+                    match is_export_content {
+                        true => ResultStyle::ExportContent,
+                        false => ResultStyle::Export,
+                    },
+                ));
                 // no need to explore the attributes of this item further, it is already in results
                 break;
             }
@@ -662,10 +670,16 @@ impl<'ast> SupportedVisitItem<'ast> for ItemVisitor {
     }
 }
 
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+enum ResultStyle {
+    Export,
+    ExportContent,
+}
+
 /// Visitor pattern for finding items
 struct ItemVisitor {
     search: Ident,
-    results: Vec<TokenStream2>,
+    results: Vec<(TokenStream2, ResultStyle)>,
 }
 
 impl<'ast> Visit<'ast> for ItemVisitor {
@@ -820,13 +834,67 @@ impl From<&String> for CompressedString {
     }
 }
 
+/// Responsible for retrieving the "contents" of an item, used by `#[docify::export_contents]`
+fn get_content_tokens<'a>(item: &'a Item) -> TokenStream2 {
+    match item {
+        // Item::Const(item_const) => item_const.to_token_stream(),
+        // Item::Enum(item_enum) => item_enum.to_token_stream(),
+        // Item::ExternCrate(item_extern) => item_extern.to_token_stream(),
+        Item::Fn(item_fn) => {
+            let mut tokens = TokenStream2::new();
+            tokens.extend(item_fn.block.stmts.iter().map(|t| t.to_token_stream()));
+            tokens
+        }
+        Item::ForeignMod(item_mod) => {
+            let mut tokens = TokenStream2::new();
+            tokens.extend(item_mod.items.iter().map(|t| t.to_token_stream()));
+            tokens
+        }
+        Item::Impl(item_impl) => {
+            let mut tokens = TokenStream2::new();
+            tokens.extend(item_impl.items.iter().map(|t| t.to_token_stream()));
+            tokens
+        }
+        // Item::Macro(item_macro) => item_macro.to_token_stream(),
+        Item::Mod(item_mod) => {
+            let Some(content) = &item_mod.content else {
+                return item_mod.to_token_stream();
+            };
+            let mut tokens = TokenStream2::new();
+            tokens.extend(content.1.iter().map(|t| t.to_token_stream()));
+            tokens
+        }
+        // Item::Static(item_static) => item_static.to_token_stream(),
+        // Item::Struct(item_struct) => item_struct.to_token_stream(),
+        Item::Trait(item_trait) => {
+            let mut tokens = TokenStream2::new();
+            tokens.extend(item_trait.items.iter().map(|t| t.to_token_stream()));
+            tokens
+        }
+        Item::TraitAlias(item_trait_alias) => item_trait_alias.to_token_stream(),
+        // Item::Type(item_type) => item_type.to_token_stream(),
+        // Item::Union(item_union) => item_union.to_token_stream(),
+        // Item::Use(item_use) => item_use.to_token_stream(),
+        // Item::Verbatim(item_verbatim) => item_verbatim.to_token_stream(),
+        _ => item.to_token_stream(),
+    }
+}
+
 /// Finds and returns the specified [`Item`] within a source text string and returns the exact
 /// source code of that item, without any formatting changes. If span locations are stabilized,
 /// this can be removed along with most of the [`CompressedString`] machinery.
-fn source_excerpt<'a, T: ToTokens>(source: &'a String, item: &'a T) -> Result<String> {
+fn source_excerpt<'a, T: ToTokens>(
+    source: &'a String,
+    item: &'a T,
+    style: ResultStyle,
+) -> Result<String> {
     // note: can't rely on span locations because this requires nightly and/or is otherwise bugged
     let compressed_source = CompressedString::from(source);
-    let compressed_item = CompressedString::from(&item.to_token_stream().to_string());
+    let item_tokens = match style {
+        ResultStyle::Export => item.to_token_stream(),
+        ResultStyle::ExportContent => get_content_tokens(&parse2::<Item>(item.to_token_stream())?),
+    };
+    let compressed_item = CompressedString::from(&item_tokens.to_string());
     let compressed_source_string = compressed_source.to_string();
     let compressed_item_string = compressed_item.to_string();
     let Some(found_start) = compressed_source_string.find(compressed_item_string.as_str()) else {
@@ -897,8 +965,8 @@ fn embed_internal_str(tokens: impl Into<TokenStream2>, lang: MarkdownLanguage) -
             ));
         }
         let mut results: Vec<String> = Vec::new();
-        for item in visitor.results {
-            let excerpt = source_excerpt(&source_code, &item)?;
+        for (item, style) in visitor.results {
+            let excerpt = source_excerpt(&source_code, &item, style)?;
             let formatted = fix_indentation(excerpt);
             let example = into_example(formatted.as_str(), lang);
             results.push(example);
