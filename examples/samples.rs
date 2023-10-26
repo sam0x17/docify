@@ -151,3 +151,19 @@ impl SomeTrait for Liam9 {
         println!("foo!");
     }
 }
+
+trait SomeOtherTrait {
+    fn foo();
+    fn bar();
+}
+
+#[docify::export_content(impl_some_other_trait_for_my_cool_struct)]
+impl SomeOtherTrait for MyCoolStruct {
+    fn foo() {
+        println!("foo!");
+    }
+
+    fn bar() {
+        println!("bar!");
+    }
+}
