@@ -171,3 +171,14 @@ impl SomeOtherTrait for MyCoolStruct {
 
     type Something = ();
 }
+
+#[docify::export_content]
+pub fn some_other_fn(x: i32, y: i32) -> Result<i32, i32> {
+    if x > 10 {
+        Ok(33)
+    } else if y < 10 {
+        Ok(44)
+    } else {
+        Err(420)
+    }
+}

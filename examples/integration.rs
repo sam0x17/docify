@@ -74,6 +74,10 @@ pub struct ExportContentImpl;
 #[doc = docify::embed!("examples/samples.rs", SomeOtherTrait)]
 pub struct ExportContentTrait;
 
+/// This demonstrates using `#[docify::export_content]` on an fn
+#[doc = docify::embed!("examples/samples.rs", some_other_fn)]
+pub struct ExportContentFn;
+
 /// This will compile all markdown files in the `markdown_source` directory to `markdown_bin`
 /// when `cargo doc` is run, handling any doc embed calls as it goes
 #[cfg(doc)]
