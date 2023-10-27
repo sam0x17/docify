@@ -152,6 +152,7 @@ impl SomeTrait for Liam9 {
     }
 }
 
+#[docify::export_content]
 trait SomeOtherTrait {
     fn foo();
     fn bar();
