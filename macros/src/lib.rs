@@ -50,7 +50,11 @@ fn line_start_position<S: AsRef<str>>(source: S, pos: usize) -> usize {
 fn fix_leading_indentation<S: AsRef<str>>(source: S) -> String {
     let source = source.as_ref();
     let mut shared_indent: Option<usize> = None;
+
     for line in source.lines() {
+        if line.trim().is_empty() {
+            continue; // Skip whitespace-only or empty lines
+        }
         let prefix = &line[..(line.len() - line.trim_start().len())];
         if let Some(shared) = shared_indent {
             shared_indent = Some(std::cmp::min(prefix.len(), shared));
@@ -58,12 +62,25 @@ fn fix_leading_indentation<S: AsRef<str>>(source: S) -> String {
             shared_indent = Some(prefix.len());
         }
     }
+
     let shared_indent = shared_indent.unwrap_or(0);
-    source
+    let mut output_lines = source
         .lines()
-        .map(|line| line[shared_indent..].to_string())
-        .collect::<Vec<String>>()
-        .join("\n")
+        .map(|line| {
+            if line.len() >= shared_indent {
+                line[shared_indent..].to_string()
+            } else {
+                line.to_string()
+            }
+        })
+        .collect::<Vec<String>>();
+
+    // Add trailing newline if the source had it
+    if source.ends_with('\n') {
+        output_lines.push("".to_string());
+    }
+
+    output_lines.join("\n")
 }
 
 fn fix_indentation<S: AsRef<str>>(source: S) -> String {
@@ -363,6 +380,49 @@ pub fn export(attr: TokenStream, tokens: TokenStream) -> TokenStream {
     }
 }
 
+/// Like [`#[docify::export]`](`macro@export`) but only exports the inner contents of whatever
+/// item the attribute is attached to.
+///
+/// For example, given the following:
+/// ```ignore
+/// #[docify::export_content]
+/// mod my_mod {
+///     pub fn some_fun() {
+///         println!("hello world!");
+///     }
+/// }
+/// ```
+///
+/// only this part would be exported:
+/// ```ignore
+/// pub fn some_fun() {
+///     println!("hello world");
+/// }
+/// ```
+///
+/// Note that if [`#[docify::export_content]`](`macro@export_content`) is used on an item that
+/// has no notion of inner contents, such as a type, static, or const declaration, it will
+/// simply function like a regular [`#[docify::export]`](`macro@export`) attribute.
+///
+/// Supported items include:
+/// - functions
+/// - modules
+/// - trait declarations
+/// - trait impls
+/// - basic blocks (when inside an outer macro pattern)
+///
+/// All other items will behave like they normally do with
+/// [`#[docify::export]`](`macro@export`). Notably this includes structs and enums, because
+/// while these items have a defined notion of "contents", those contents cannot stand on their
+/// own as valid rust code.
+#[proc_macro_attribute]
+pub fn export_content(attr: TokenStream, tokens: TokenStream) -> TokenStream {
+    match export_internal(attr, tokens) {
+        Ok(tokens) => tokens.into(),
+        Err(err) => err.to_compile_error().into(),
+    }
+}
+
 /// Used to parse args for `#[export(..)]`
 #[derive(Parse)]
 struct ExportAttr {
@@ -378,20 +438,14 @@ fn export_internal(
     let item = parse2::<Item>(tokens.into())?;
 
     // get export ident
-    let _export_ident = match attr.ident {
-        Some(ident) => ident,
-        None => match item.name_ident() {
-            Some(ident) => ident,
-            None => {
-                return Err(Error::new(
-                    item.span(),
-                    "Cannot automatically detect ident from this item. \
-				    You will need to specify a name manually as the argument \
-				    for the #[export] attribute, i.e. #[export(my_name)].",
-                ))
-            }
-        },
-    };
+    let _export_ident = attr.ident.or_else(|| item.name_ident()).ok_or_else(|| {
+        Error::new(
+            item.span(),
+            "Cannot automatically detect ident from this item. \
+            You will need to specify a name manually as the argument \
+            for the #[export] attribute, i.e. #[export(my_name)].",
+        )
+    })?;
 
     Ok(quote!(#item))
 }
@@ -575,7 +629,8 @@ impl<'ast> SupportedVisitItem<'ast> for ItemVisitor {
             let Some(last_seg) = attr.path().segments.last() else {
                 continue;
             };
-            if last_seg.ident != "export" {
+            let is_export_content = last_seg.ident == "export_content";
+            if last_seg.ident != "export" && !is_export_content {
                 continue;
             }
             let Some(second_to_last_seg) = attr.path().segments.iter().rev().nth(1) else {
@@ -586,6 +641,7 @@ impl<'ast> SupportedVisitItem<'ast> for ItemVisitor {
             }
             // we have found a #[something::docify::export] or #[docify::export] or
             // #[export]-style attribute
+            // (OR any of the above but export_content)
 
             // resolve item_ident
             let item_ident = match &attr.meta {
@@ -617,7 +673,13 @@ impl<'ast> SupportedVisitItem<'ast> for ItemVisitor {
                     .collect();
                 item.set_item_attributes(attrs_without_this_one);
                 // add the item to results
-                self.results.push(item.to_token_stream());
+                self.results.push((
+                    item.to_token_stream(),
+                    match is_export_content {
+                        true => ResultStyle::ExportContent,
+                        false => ResultStyle::Export,
+                    },
+                ));
                 // no need to explore the attributes of this item further, it is already in results
                 break;
             }
@@ -625,10 +687,16 @@ impl<'ast> SupportedVisitItem<'ast> for ItemVisitor {
     }
 }
 
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+enum ResultStyle {
+    Export,
+    ExportContent,
+}
+
 /// Visitor pattern for finding items
 struct ItemVisitor {
     search: Ident,
-    results: Vec<TokenStream2>,
+    results: Vec<(TokenStream2, ResultStyle)>,
 }
 
 impl<'ast> Visit<'ast> for ItemVisitor {
@@ -783,13 +851,67 @@ impl From<&String> for CompressedString {
     }
 }
 
+/// Responsible for retrieving the "contents" of an item, used by `#[docify::export_contents]`
+fn get_content_tokens<'a>(item: &'a Item) -> TokenStream2 {
+    match item {
+        // Item::Const(item_const) => item_const.to_token_stream(),
+        // Item::Enum(item_enum) => item_enum.to_token_stream(),
+        // Item::ExternCrate(item_extern) => item_extern.to_token_stream(),
+        Item::Fn(item_fn) => {
+            let mut tokens = TokenStream2::new();
+            tokens.extend(item_fn.block.stmts.iter().map(|t| t.to_token_stream()));
+            tokens
+        }
+        Item::ForeignMod(item_mod) => {
+            let mut tokens = TokenStream2::new();
+            tokens.extend(item_mod.items.iter().map(|t| t.to_token_stream()));
+            tokens
+        }
+        Item::Impl(item_impl) => {
+            let mut tokens = TokenStream2::new();
+            tokens.extend(item_impl.items.iter().map(|t| t.to_token_stream()));
+            tokens
+        }
+        // Item::Macro(item_macro) => item_macro.to_token_stream(),
+        Item::Mod(item_mod) => {
+            let Some(content) = &item_mod.content else {
+                return item_mod.to_token_stream();
+            };
+            let mut tokens = TokenStream2::new();
+            tokens.extend(content.1.iter().map(|t| t.to_token_stream()));
+            tokens
+        }
+        // Item::Static(item_static) => item_static.to_token_stream(),
+        // Item::Struct(item_struct) => item_struct.to_token_stream(),
+        Item::Trait(item_trait) => {
+            let mut tokens = TokenStream2::new();
+            tokens.extend(item_trait.items.iter().map(|t| t.to_token_stream()));
+            tokens
+        }
+        Item::TraitAlias(item_trait_alias) => item_trait_alias.to_token_stream(),
+        // Item::Type(item_type) => item_type.to_token_stream(),
+        // Item::Union(item_union) => item_union.to_token_stream(),
+        // Item::Use(item_use) => item_use.to_token_stream(),
+        // Item::Verbatim(item_verbatim) => item_verbatim.to_token_stream(),
+        _ => item.to_token_stream(),
+    }
+}
+
 /// Finds and returns the specified [`Item`] within a source text string and returns the exact
 /// source code of that item, without any formatting changes. If span locations are stabilized,
 /// this can be removed along with most of the [`CompressedString`] machinery.
-fn source_excerpt<'a, T: ToTokens>(source: &'a String, item: &'a T) -> Result<String> {
+fn source_excerpt<'a, T: ToTokens>(
+    source: &'a String,
+    item: &'a T,
+    style: ResultStyle,
+) -> Result<String> {
     // note: can't rely on span locations because this requires nightly and/or is otherwise bugged
     let compressed_source = CompressedString::from(source);
-    let compressed_item = CompressedString::from(&item.to_token_stream().to_string());
+    let item_tokens = match style {
+        ResultStyle::Export => item.to_token_stream(),
+        ResultStyle::ExportContent => get_content_tokens(&parse2::<Item>(item.to_token_stream())?),
+    };
+    let compressed_item = CompressedString::from(&item_tokens.to_string());
     let compressed_source_string = compressed_source.to_string();
     let compressed_item_string = compressed_item.to_string();
     let Some(found_start) = compressed_source_string.find(compressed_item_string.as_str()) else {
@@ -860,8 +982,8 @@ fn embed_internal_str(tokens: impl Into<TokenStream2>, lang: MarkdownLanguage) -
             ));
         }
         let mut results: Vec<String> = Vec::new();
-        for item in visitor.results {
-            let excerpt = source_excerpt(&source_code, &item)?;
+        for (item, style) in visitor.results {
+            let excerpt = source_excerpt(&source_code, &item, style)?;
             let formatted = fix_indentation(excerpt);
             let example = into_example(formatted.as_str(), lang);
             results.push(example);

@@ -151,3 +151,37 @@ impl SomeTrait for Liam9 {
         println!("foo!");
     }
 }
+
+#[docify::export_content]
+trait SomeOtherTrait {
+    fn foo();
+    fn bar();
+    type Something;
+}
+
+#[docify::export_content(impl_some_other_trait_for_my_cool_struct)]
+impl SomeOtherTrait for MyCoolStruct {
+    fn foo() {
+        println!("foo!");
+    }
+
+    fn bar() {
+        println!("bar!");
+    }
+
+    type Something = ();
+}
+
+#[docify::export_content]
+pub fn some_other_fn(x: i32, y: i32) -> Result<i32, i32> {
+    if x > 10 {
+        Ok(33)
+    } else if y < 10 {
+        Ok(44)
+    } else {
+        Err(420)
+    }
+}
+
+#[docify::export_content]
+const MY_CONST: &'static str = "hello world";

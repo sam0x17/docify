@@ -66,6 +66,23 @@ pub struct LiamExample;
 #[doc = docify::embed!("examples/samples.rs", trait_impl_method)]
 pub struct LiamExample9;
 
+/// This demonstrates using `#[docify::export_content]` on an impl
+#[doc = docify::embed!("examples/samples.rs", impl_some_other_trait_for_my_cool_struct)]
+pub struct ExportContentImpl;
+
+/// This demonstrates using `#[docify::export_content]` on a trait
+#[doc = docify::embed_run!("examples/samples.rs", SomeOtherTrait)]
+pub struct ExportContentTrait;
+
+/// This demonstrates using `#[docify::export_content]` on an fn
+#[doc = docify::embed!("examples/samples.rs", some_other_fn)]
+pub struct ExportContentFn;
+
+/// This demonstrates using `#[docify::export_content]` on a const, which should be identical
+/// to using `#[docify::export]` on a const since const has no notion of content.
+#[doc = docify::embed!("examples/samples.rs", MY_CONST)]
+pub struct ExportContentConst;
+
 /// This will compile all markdown files in the `markdown_source` directory to `markdown_bin`
 /// when `cargo doc` is run, handling any doc embed calls as it goes
 #[cfg(doc)]
