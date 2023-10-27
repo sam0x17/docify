@@ -687,7 +687,7 @@ impl<'ast> SupportedVisitItem<'ast> for ItemVisitor {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 enum ResultStyle {
     Export,
     ExportContent,
@@ -778,8 +778,11 @@ impl CompressedString {
     }
 }
 
-static DOCIFY_ATTRIBUTES: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"\#\[(?:\w+::)*export(?:\s*\(\s*(\w+)\s*\))?\]").unwrap());
+static DOCIFY_ATTRIBUTES: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"\n?\#\[(?:\w+\s*::\s*)*(?:export|export_content)(?:\s*\(\s*(\w+)\s*\))?\]\n?")
+        .unwrap()
+});
+
 static DOC_COMMENT: Lazy<Regex> = Lazy::new(|| Regex::new(r"///.*").unwrap());
 static DOC_COMMENT_ATTR: Lazy<Regex> =
     Lazy::new(|| Regex::new(r#"#\[doc\s*=\s*".*"\s*]"#).unwrap());
@@ -905,7 +908,8 @@ fn source_excerpt<'a, T: ToTokens>(
     item: &'a T,
     style: ResultStyle,
 ) -> Result<String> {
-    // note: can't rely on span locations because this requires nightly and/or is otherwise bugged
+    // note: can't rely on span locations because this requires nightly and/or is otherwise
+    // bugged
     let compressed_source = CompressedString::from(source);
     let item_tokens = match style {
         ResultStyle::Export => item.to_token_stream(),
@@ -931,13 +935,7 @@ fn source_excerpt<'a, T: ToTokens>(
     let final_excerpt = &source[start_pos..min(end_pos + 1, source.len())];
     Ok(final_excerpt
         .lines()
-        .map(|line| {
-            if DOCIFY_ATTRIBUTES.is_match(line) && !line.trim().starts_with("//") {
-                "\n"
-            } else {
-                line
-            }
-        })
+        .filter(|line| !(DOCIFY_ATTRIBUTES.is_match(line) && !line.trim().starts_with("//")))
         .collect::<Vec<&str>>()
         .join("\n"))
 }

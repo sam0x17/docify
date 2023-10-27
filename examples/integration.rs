@@ -83,6 +83,15 @@ pub struct ExportContentFn;
 #[doc = docify::embed!("examples/samples.rs", MY_CONST)]
 pub struct ExportContentConst;
 
+/// This tests that `#[docify::export]` can appear inside of things that have
+/// `#[docify::export]` on them.
+#[doc = docify::embed!("examples/samples.rs", outer_mod)]
+#[doc = docify::embed!("examples/samples.rs", outer_foo)]
+#[doc = docify::embed!("examples/samples.rs", inner_mod)]
+#[doc = docify::embed!("examples/samples.rs", inner_inner_bar)]
+#[doc = docify::embed!("examples/samples.rs", inner_mod2)]
+pub struct NestedExports;
+
 /// This will compile all markdown files in the `markdown_source` directory to `markdown_bin`
 /// when `cargo doc` is run, handling any doc embed calls as it goes
 #[cfg(doc)]
