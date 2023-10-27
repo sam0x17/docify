@@ -83,27 +83,6 @@ fn fix_leading_indentation<S: AsRef<str>>(source: S) -> String {
     output_lines.join("\n")
 }
 
-#[test]
-fn test_fix_leading_indentation() {
-    let input = r#"    fn foo() {
-        println!("foo!");
-    }
-
-    fn bar() {
-        println!("bar!");
-    }
-"#;
-    let output = r#"fn foo() {
-    println!("foo!");
-}
-
-fn bar() {
-    println!("bar!");
-}
-"#;
-    assert_eq!(fix_leading_indentation(input), output);
-}
-
 fn fix_indentation<S: AsRef<str>>(source: S) -> String {
     let source = source.as_ref();
     // let source = fix_first_line_indentation(source);

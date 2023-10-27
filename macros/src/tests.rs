@@ -172,3 +172,24 @@ fn test_compile_markdown_source_invalid() {
     )
     .is_err());
 }
+
+#[test]
+fn test_fix_leading_indentation() {
+    let input = r#"    fn foo() {
+        println!("foo!");
+    }
+
+    fn bar() {
+        println!("bar!");
+    }
+"#;
+    let output = r#"fn foo() {
+    println!("foo!");
+}
+
+fn bar() {
+    println!("bar!");
+}
+"#;
+    assert_eq!(fix_leading_indentation(input), output);
+}

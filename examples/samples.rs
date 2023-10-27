@@ -182,3 +182,6 @@ pub fn some_other_fn(x: i32, y: i32) -> Result<i32, i32> {
         Err(420)
     }
 }
+
+#[docify::export_content]
+const MY_CONST: &'static str = "hello world";
