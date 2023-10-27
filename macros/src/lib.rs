@@ -393,7 +393,7 @@ pub fn export(attr: TokenStream, tokens: TokenStream) -> TokenStream {
 /// }
 /// ```
 ///
-/// Would export only:
+/// only this part would be exported:
 /// ```ignore
 /// pub fn some_fun() {
 ///     println!("hello world");
