@@ -50,7 +50,11 @@ fn line_start_position<S: AsRef<str>>(source: S, pos: usize) -> usize {
 fn fix_leading_indentation<S: AsRef<str>>(source: S) -> String {
     let source = source.as_ref();
     let mut shared_indent: Option<usize> = None;
+
     for line in source.lines() {
+        if line.trim().is_empty() {
+            continue; // Skip whitespace-only or empty lines
+        }
         let prefix = &line[..(line.len() - line.trim_start().len())];
         if let Some(shared) = shared_indent {
             shared_indent = Some(std::cmp::min(prefix.len(), shared));
@@ -58,12 +62,46 @@ fn fix_leading_indentation<S: AsRef<str>>(source: S) -> String {
             shared_indent = Some(prefix.len());
         }
     }
+
     let shared_indent = shared_indent.unwrap_or(0);
-    source
+    let mut output_lines = source
         .lines()
-        .map(|line| line[shared_indent..].to_string())
-        .collect::<Vec<String>>()
-        .join("\n")
+        .map(|line| {
+            if line.len() >= shared_indent {
+                line[shared_indent..].to_string()
+            } else {
+                line.to_string()
+            }
+        })
+        .collect::<Vec<String>>();
+
+    // Add trailing newline if the source had it
+    if source.ends_with('\n') {
+        output_lines.push("".to_string());
+    }
+
+    output_lines.join("\n")
+}
+
+#[test]
+fn test_fix_leading_indentation() {
+    let input = r#"    fn foo() {
+        println!("foo!");
+    }
+
+    fn bar() {
+        println!("bar!");
+    }
+"#;
+    let output = r#"fn foo() {
+    println!("foo!");
+}
+
+fn bar() {
+    println!("bar!");
+}
+"#;
+    assert_eq!(fix_leading_indentation(input), output);
 }
 
 fn fix_indentation<S: AsRef<str>>(source: S) -> String {
