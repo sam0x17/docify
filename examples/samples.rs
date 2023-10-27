@@ -155,6 +155,7 @@ impl SomeTrait for Liam9 {
 trait SomeOtherTrait {
     fn foo();
     fn bar();
+    type Something;
 }
 
 #[docify::export_content(impl_some_other_trait_for_my_cool_struct)]
@@ -166,4 +167,6 @@ impl SomeOtherTrait for MyCoolStruct {
     fn bar() {
         println!("bar!");
     }
+
+    type Something = ();
 }
