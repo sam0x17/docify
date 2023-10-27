@@ -185,3 +185,39 @@ pub fn some_other_fn(x: i32, y: i32) -> Result<i32, i32> {
 
 #[docify::export_content]
 const MY_CONST: &'static str = "hello world";
+
+#[docify::export]
+pub mod outer_mod {
+
+    pub fn hello() {
+        println!("hello");
+    }
+
+    #[docify::export]
+    pub fn outer_foo() {
+        println!("foo!");
+    }
+
+    #[docify::export]
+    pub mod inner_mod {
+        const SOMETHING: i32 = 55;
+
+        #[docify::export]
+        pub fn inner_inner_bar() {
+            println!("bar!");
+        }
+
+        #[docify::export_content]
+        pub fn inner_inner_fizz() {
+            println!("fizz!");
+        }
+    }
+
+    #[docify::export_content]
+    pub mod inner_mod2 {
+        #[docify::export]
+        pub fn inner_inner_wiz() {
+            println!("wiz!");
+        }
+    }
+}
