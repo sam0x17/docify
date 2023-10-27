@@ -935,13 +935,7 @@ fn source_excerpt<'a, T: ToTokens>(
     let final_excerpt = &source[start_pos..min(end_pos + 1, source.len())];
     Ok(final_excerpt
         .lines()
-        .map(|line| {
-            if DOCIFY_ATTRIBUTES.is_match(line) && !line.trim().starts_with("//") {
-                "\n"
-            } else {
-                line
-            }
-        })
+        .filter(|line| !(DOCIFY_ATTRIBUTES.is_match(line) && !line.trim().starts_with("//")))
         .collect::<Vec<&str>>()
         .join("\n"))
 }
