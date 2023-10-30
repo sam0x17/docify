@@ -20,8 +20,8 @@ use syn::{
     spanned::Spanned,
     token::Paren,
     visit::{self, Visit},
-    AttrStyle, Attribute, Error, File, Ident, ImplItem, Item, LitStr, Meta, Result, Token,
-    TraitItem,
+    AttrStyle, Attribute, Error, Expr, File, Ident, ImplItem, Item, LitStr, Meta, Pat, Result,
+    Stmt, Token, TraitItem,
 };
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 use toml::{Table, Value};
@@ -210,6 +210,95 @@ impl NamedItem for TraitItem {
             TraitItem::Type(trait_item_type) => Some(trait_item_type.ident.clone()),
             // TraitItem::Macro(trait_item_macro) => None,
             // TraitItem::Verbatim(trait_item_verbatim) => None,
+            _ => None,
+        }
+    }
+}
+
+impl NamedItem for Expr {
+    fn name_ident(&self) -> Option<Ident> {
+        match self {
+            // Expr::Array(_) => todo!(),
+            // Expr::Assign(_) => todo!(),
+            // Expr::Async(_) => todo!(),
+            // Expr::Await(_) => todo!(),
+            // Expr::Binary(_) => todo!(),
+            Expr::Block(expr_block) => {
+                let Some(label) = &expr_block.label else {
+                    return None;
+                };
+                Some(label.name.ident.clone())
+            }
+            // Expr::Break(_) => todo!(),
+            // Expr::Call(_) => todo!(),
+            // Expr::Cast(_) => todo!(),
+            // Expr::Closure(_) => todo!(),
+            // Expr::Const(_) => todo!(),
+            // Expr::Continue(_) => todo!(),
+            // Expr::Field(_) => todo!(),
+            // Expr::ForLoop(_) => todo!(),
+            // Expr::Group(_) => todo!(),
+            // Expr::If(_) => todo!(),
+            // Expr::Index(_) => todo!(),
+            // Expr::Infer(_) => todo!(),
+            Expr::Let(expr_let) => expr_let.pat.name_ident(),
+            // Expr::Lit(_) => todo!(),
+            // Expr::Loop(_) => todo!(),
+            // Expr::Macro(_) => todo!(),
+            Expr::Match(match_expr) => match_expr.expr.name_ident(),
+            // Expr::MethodCall(method_call) => Some(method_call.method.clone()),
+            Expr::Paren(paren) => paren.expr.name_ident(),
+            Expr::Path(path) => Some(path.path.segments.last()?.ident.clone()),
+            // Expr::Range(_) => todo!(),
+            // Expr::Reference(_) => todo!(),
+            // Expr::Repeat(_) => todo!(),
+            // Expr::Return(_) => todo!(),
+            Expr::Struct(expr_struct) => Some(expr_struct.path.segments.last()?.ident.clone()),
+            Expr::Try(try_expr) => try_expr.expr.name_ident(),
+            // Expr::TryBlock(_) => todo!(),
+            // Expr::Tuple(_) => todo!(),
+            // Expr::Unary(_) => todo!(),
+            // Expr::Unsafe(_) => todo!(),
+            // Expr::Verbatim(_) => todo!(),
+            // Expr::While(_) => todo!(),
+            // Expr::Yield(_) => todo!(),
+            _ => None,
+        }
+    }
+}
+
+impl NamedItem for Pat {
+    fn name_ident(&self) -> Option<Ident> {
+        match self {
+            // syn::Pat::Const(_) => todo!(),
+            syn::Pat::Ident(pat_ident) => Some(pat_ident.ident.clone()),
+            // syn::Pat::Lit(_) => todo!(),
+            // syn::Pat::Macro(_) => todo!(),
+            // syn::Pat::Or(_) => todo!(),
+            // syn::Pat::Paren(_) => todo!(),
+            syn::Pat::Path(pat_path) => Some(pat_path.path.segments.last()?.ident.clone()),
+            // syn::Pat::Range(_) => todo!(),
+            // syn::Pat::Reference(_) => todo!(),
+            // syn::Pat::Rest(_) => todo!(),
+            // syn::Pat::Slice(_) => todo!(),
+            // syn::Pat::Struct(_) => todo!(),
+            // syn::Pat::Tuple(_) => todo!(),
+            // syn::Pat::TupleStruct(_) => todo!(),
+            syn::Pat::Type(pat_type) => pat_type.pat.name_ident(),
+            // syn::Pat::Verbatim(_) => todo!(),
+            // syn::Pat::Wild(_) => todo!(),
+            _ => None,
+        }
+    }
+}
+
+impl NamedItem for Stmt {
+    fn name_ident(&self) -> Option<Ident> {
+        match self {
+            Stmt::Local(local) => local.pat.name_ident(),
+            Stmt::Item(item) => item.name_ident(),
+            Stmt::Expr(item_expr, _) => item_expr.name_ident(),
+            // Stmt::Macro(_) => todo!(),
             _ => None,
         }
     }
