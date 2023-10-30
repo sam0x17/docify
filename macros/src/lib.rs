@@ -315,6 +315,63 @@ trait AttributedItem {
     fn set_item_attributes(&mut self, attrs: Vec<Attribute>);
 }
 
+impl AttributedItem for Stmt {
+    fn item_attributes(&self) -> &Vec<Attribute> {
+        const EMPTY: &Vec<Attribute> = &Vec::new();
+        match self {
+            Stmt::Local(local) => &local.attrs,
+            Stmt::Item(item) => item.item_attributes(),
+            Stmt::Expr(expr, _) => match expr {
+                Expr::Array(expr_array) => &expr_array.attrs,
+                Expr::Assign(expr_assign) => &expr_assign.attrs,
+                Expr::Async(expr_async) => &expr_async.attrs,
+                Expr::Await(expr_await) => &expr_await.attrs,
+                Expr::Binary(expr_binary) => &expr_binary.attrs,
+                Expr::Block(expr_block) => &expr_block.attrs,
+                Expr::Break(expr_break) => &expr_break.attrs,
+                Expr::Call(expr_call) => &expr_call.attrs,
+                Expr::Cast(expr_cast) => &expr_cast.attrs,
+                Expr::Closure(expr_closure) => &expr_closure.attrs,
+                Expr::Const(expr_const) => &expr_const.attrs,
+                Expr::Continue(expr_continue) => &expr_continue.attrs,
+                Expr::Field(expr_field) => &expr_field.attrs,
+                Expr::ForLoop(expr_for_loop) => &expr_for_loop.attrs,
+                Expr::Group(expr_group) => &expr_group.attrs,
+                Expr::If(expr_if) => &expr_if.attrs,
+                Expr::Index(expr_index) => &expr_index.attrs,
+                Expr::Infer(expr_infer) => &expr_infer.attrs,
+                Expr::Let(expr_let) => &expr_let.attrs,
+                Expr::Lit(expr_lit) => &expr_lit.attrs,
+                Expr::Loop(expr_loop) => &expr_loop.attrs,
+                Expr::Macro(expr_macro) => &expr_macro.attrs,
+                Expr::Match(expr_match) => &expr_match.attrs,
+                Expr::MethodCall(expr_method_call) => &expr_method_call.attrs,
+                Expr::Paren(expr_paren) => &expr_paren.attrs,
+                Expr::Path(expr_path) => &expr_path.attrs,
+                Expr::Range(expr_range) => &expr_range.attrs,
+                Expr::Reference(expr_reference) => &expr_reference.attrs,
+                Expr::Repeat(expr_repeat) => &expr_repeat.attrs,
+                Expr::Return(expr_return) => &expr_return.attrs,
+                Expr::Struct(expr_struct) => &expr_struct.attrs,
+                Expr::Try(expr_try) => &expr_try.attrs,
+                Expr::TryBlock(expr_try_block) => &expr_try_block.attrs,
+                Expr::Tuple(expr_tuple) => &expr_tuple.attrs,
+                Expr::Unary(expr_unary) => &expr_unary.attrs,
+                Expr::Unsafe(expr_unsafe) => &expr_unsafe.attrs,
+                // Expr::Verbatim(_) => todo!(),
+                Expr::While(expr_while) => &expr_while.attrs,
+                Expr::Yield(expr_yield) => &expr_yield.attrs,
+                _ => &EMPTY,
+            },
+            Stmt::Macro(item_macro) => &item_macro.attrs,
+        }
+    }
+
+    fn set_item_attributes(&mut self, attrs: Vec<Attribute>) {
+        todo!()
+    }
+}
+
 impl AttributedItem for Item {
     fn item_attributes(&self) -> &Vec<Attribute> {
         const EMPTY: &Vec<Attribute> = &Vec::new();
