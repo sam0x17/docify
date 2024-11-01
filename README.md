@@ -83,7 +83,7 @@ of files or individual files.
 In fact, this `README.md` file is automatically compiled whenever `cargo doc` is run on this
 crate, resulting in the following codeblock to populate dynamically:
 
-```rust
+```rust,ignore
 fn some_example() {
     assert_eq!(2 + 2, 4);
     assert_eq!(2 + 3, 5);
