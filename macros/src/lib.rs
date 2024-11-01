@@ -10,6 +10,7 @@ use regex::Regex;
 use std::{
     cmp::min,
     collections::HashMap,
+    fmt::Display,
     fs::{self, OpenOptions},
     io::Write,
     path::{Path, PathBuf},
@@ -521,7 +522,10 @@ fn export_internal(
 /// Output should match `rustfmt` output exactly.
 #[proc_macro]
 pub fn embed(tokens: TokenStream) -> TokenStream {
-    match embed_internal(tokens, MarkdownLanguage::Ignore) {
+    match embed_internal(
+        tokens,
+        vec![MarkdownLanguage::Rust, MarkdownLanguage::Ignore],
+    ) {
         Ok(tokens) => tokens.into(),
         Err(err) => err.to_compile_error().into(),
     }
@@ -534,7 +538,7 @@ pub fn embed(tokens: TokenStream) -> TokenStream {
 /// [`docify::embed!(..)`](`macro@embed`) also apply to this macro.
 #[proc_macro]
 pub fn embed_run(tokens: TokenStream) -> TokenStream {
-    match embed_internal(tokens, MarkdownLanguage::Blank) {
+    match embed_internal(tokens, vec![MarkdownLanguage::Blank]) {
         Ok(tokens) => tokens.into(),
         Err(err) => err.to_compile_error().into(),
     }
@@ -591,17 +595,34 @@ enum MarkdownLanguage {
     Blank,
 }
 
-/// Converts a source string to a codeblocks wrapped example
-fn into_example(st: &str, lang: MarkdownLanguage) -> String {
-    let mut lines: Vec<String> = Vec::new();
-    match lang {
-        MarkdownLanguage::Ignore => lines.push(String::from("```ignore")),
-        MarkdownLanguage::Rust => lines.push(String::from("```rust")),
-        MarkdownLanguage::Blank => lines.push(String::from("```")),
+impl Display for MarkdownLanguage {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            MarkdownLanguage::Ignore => write!(f, "{}", "ignore"),
+            MarkdownLanguage::Rust => write!(f, "{}", "rust"),
+            MarkdownLanguage::Blank => write(f, "", ""),
+        }
     }
+}
+
+/// Converts a source string to a codeblocks wrapped example
+fn into_example(st: &str, langs: Vec<MarkdownLanguage>) -> String {
+    let mut lines: Vec<String> = Vec::new();
+
+    // Add the markdown languages (can be more than one, or none)
+    lines.push(String::from("```"));
+    let mut langs_iter = langs.iter();
+    langs_iter
+        .next()
+        .map(|first_lang| lines.push(first_lang.to_string()));
+    for lang in langs_iter {
+        lines.push(format!(",{}", lang.to_string()));
+    }
+
     for line in st.lines() {
         lines.push(String::from(line));
     }
+
     lines.push(String::from("```"));
     lines.join("\n")
 }
@@ -941,7 +962,10 @@ fn source_excerpt<'a, T: ToTokens>(
 }
 
 /// Inner version of [`embed_internal`] that just returns the result as a [`String`].
-fn embed_internal_str(tokens: impl Into<TokenStream2>, lang: MarkdownLanguage) -> Result<String> {
+fn embed_internal_str(
+    tokens: impl Into<TokenStream2>,
+    langs: Vec<MarkdownLanguage>,
+) -> Result<String> {
     let args = parse2::<EmbedArgs>(tokens.into())?;
     // return blank result if we can't properly resolve `caller_crate_root`
     let Some(root) = caller_crate_root() else {
@@ -983,19 +1007,22 @@ fn embed_internal_str(tokens: impl Into<TokenStream2>, lang: MarkdownLanguage) -
         for (item, style) in visitor.results {
             let excerpt = source_excerpt(&source_code, &item, style)?;
             let formatted = fix_indentation(excerpt);
-            let example = into_example(formatted.as_str(), lang);
+            let example = into_example(formatted.as_str(), langs);
             results.push(example);
         }
         results.join("\n")
     } else {
-        into_example(source_code.as_str(), lang)
+        into_example(source_code.as_str(), langs)
     };
     Ok(output)
 }
 
 /// Internal implementation behind [`macro@embed`].
-fn embed_internal(tokens: impl Into<TokenStream2>, lang: MarkdownLanguage) -> Result<TokenStream2> {
-    let output = embed_internal_str(tokens, lang)?;
+fn embed_internal(
+    tokens: impl Into<TokenStream2>,
+    langs: Vec<MarkdownLanguage>,
+) -> Result<TokenStream2> {
+    let output = embed_internal_str(tokens, langs)?;
     Ok(quote!(#output))
 }
 
@@ -1211,7 +1238,10 @@ fn compile_markdown_source<S: AsRef<str>>(source: S) -> Result<String> {
         let comment = &orig_comment[4..(orig_comment.len() - 3)].trim();
         if comment.starts_with("docify") {
             let args = parse2::<EmbedCommentCall>(comment.parse()?)?.args;
-            let compiled = embed_internal_str(args.to_token_stream(), MarkdownLanguage::Rust)?;
+            let compiled = embed_internal_str(
+                args.to_token_stream(),
+                vec![MarkdownLanguage::Rust, MarkdownLanguage::Ignore],
+            )?;
             output.push(compiled);
         } else {
             output.push(String::from(orig_comment));
