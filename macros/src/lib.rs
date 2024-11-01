@@ -600,16 +600,16 @@ impl Display for MarkdownLanguage {
         match self {
             MarkdownLanguage::Ignore => write!(f, "{}", "ignore"),
             MarkdownLanguage::Rust => write!(f, "{}", "rust"),
-            MarkdownLanguage::Blank => write(f, "", ""),
+            MarkdownLanguage::Blank => write!(f, "{}", ""),
         }
     }
 }
 
 /// Converts a source string to a codeblocks wrapped example
-fn into_example(st: &str, langs: Vec<MarkdownLanguage>) -> String {
+fn into_example(st: &str, langs: &Vec<MarkdownLanguage>) -> String {
     let mut lines: Vec<String> = Vec::new();
-
     // Add the markdown languages (can be more than one, or none)
+
     lines.push(String::from("```"));
     let mut langs_iter = langs.iter();
     langs_iter
@@ -1007,12 +1007,12 @@ fn embed_internal_str(
         for (item, style) in visitor.results {
             let excerpt = source_excerpt(&source_code, &item, style)?;
             let formatted = fix_indentation(excerpt);
-            let example = into_example(formatted.as_str(), langs);
+            let example = into_example(formatted.as_str(), &langs);
             results.push(example);
         }
         results.join("\n")
     } else {
-        into_example(source_code.as_str(), langs)
+        into_example(source_code.as_str(), &langs)
     };
     Ok(output)
 }
