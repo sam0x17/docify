@@ -608,16 +608,18 @@ impl Display for MarkdownLanguage {
 /// Converts a source string to a codeblocks wrapped example
 fn into_example(st: &str, langs: &Vec<MarkdownLanguage>) -> String {
     let mut lines: Vec<String> = Vec::new();
-    // Add the markdown languages (can be more than one, or none)
 
-    lines.push(String::from("```"));
-    let mut langs_iter = langs.iter();
-    langs_iter
-        .next()
-        .map(|first_lang| lines.push(first_lang.to_string()));
-    for lang in langs_iter {
-        lines.push(format!(",{}", lang.to_string()));
-    }
+    // Add the markdown languages (can be more than one, or none)
+    let mut lang_line = String::from("```");
+    lang_line.push_str(
+        langs
+            .iter()
+            .map(|lang| lang.to_string())
+            .collect::<Vec<String>>()
+            .join(",")
+            .as_str(),
+    );
+    lines.push(lang_line);
 
     for line in st.lines() {
         lines.push(String::from(line));
