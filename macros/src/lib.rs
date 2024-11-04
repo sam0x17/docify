@@ -87,7 +87,7 @@ fn fix_leading_indentation<S: AsRef<str>>(source: S) -> String {
 fn fix_indentation<S: AsRef<str>>(source: S) -> String {
     let source = source.as_ref();
     // let source = fix_first_line_indentation(source);
-    
+
     fix_leading_indentation(source)
 }
 
